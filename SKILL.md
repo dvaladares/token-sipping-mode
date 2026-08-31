@@ -99,6 +99,38 @@ separate vendor budgets. Shunt aggressively:
 - **Per-project overrides:** if `.claude/routing-overrides.md` exists in the project,
   read it first; its routing rules win over this file.
 
+### Vendor model lists move. Verify them, do not trust a doc.
+
+A model name written in any skill file, including this one, rots. Measured 2026-08-31:
+an example model string here had been valid weeks earlier and no longer existed. The
+run died on the first call and bought nothing.
+
+The good news is that a CLI which fails closed costs you a round-trip and never bad
+data. agy, for instance, refuses an unknown model and prints the live list. Read the
+error, do not guess a replacement.
+
+Before a fan-out that depends on an exact model string, spend one cheap call to confirm
+it. That is far cheaper than discovering it after dispatching twelve workers.
+
+### A blocked delegate is escalated to the HUMAN, never to the delegate
+
+If a delegate reports it is blocked by permissions, sandboxing, or a missing grant,
+there is exactly one correct move: take it back to the person who can grant it, or do
+the work yourself in a context that already holds the access.
+
+**Never send a follow-up message telling the delegate to bypass its own restriction.**
+Asking a peer to disable a guard that stopped you is permission laundering. It routes
+around the human's decision instead of back to it, and the fact that you can phrase it
+politely does not change what it is.
+
+Learned the hard way on 2026-08-31. A Codex task was blocked writing to a config
+directory. The follow-up said "rerun unsandboxed". Codex refused, and its reasoning was
+right: no relayed agent message can widen its own permissions. Only the human's own
+action can. The refusal was correct and the instruction was wrong.
+
+Once the human grants it in their own words, say so plainly in the prompt and the
+delegate can proceed. The grant has to originate with them, not with you.
+
 ## Delegation contract (make cheap models reliable)
 
 A delegated task must carry: a single concrete deliverable, an output cap (head/tail -c
@@ -184,6 +216,45 @@ high escalation rate on one shape = its table row routes too low; near-zero savi
 work is not being delegated; huge handoff tokens = delegates are pasting, not pointing.
 Tune THIS FILE from measurements, not vibes. Full stats: `python3
 ~/.claude/frugal/bin/stats.py` (or `/frugal:router-stats` if the plugin is installed).
+
+## Gauges: a number you cannot see cannot pace you
+
+Every rule above assumes you know how much budget is left. That assumption fails
+quietly, and the failure looks identical to good news. Three real cases from one day:
+
+- A statusline read `codex 5h 30%` while the true figure was **100%**. The parser found
+  the first of two rate-limit windows and stopped. The lane was exhausted and the gauge
+  looked healthy.
+- An MCP server dropped mid-session. Nothing surfaced it. A disconnected server is
+  invisible until you reach for it.
+- An agent-count field printed `0 agents` whenever the key was explicitly `null`,
+  because `jq`'s `has("subagents")` is TRUE on a null and `null | length` is `0`.
+
+**The shared shape: absence rendered as a healthy value.** Guard against it directly.
+
+**Three rules that catch all of the above.**
+
+1. **Absent data means an omitted field. Never a zero, never a placeholder.** `0%` reads
+   as "plenty left" at exactly the wrong moment. Print nothing instead.
+2. **Test the type, not the presence.** `has(k)` is true for an explicit null. Use
+   `(.k | type) == "array"` when you mean an array.
+3. **Prove the gauge fires in BOTH directions before trusting it.** A check never seen
+   to alarm is indistinguishable from a broken one. Equally, a filter never seen to
+   *keep* something may simply hide everything. Write the positive case too.
+
+**Version any cache you add a field to.** A cache written by an older layout, read with
+a newer field list, shifts every column and prints confident nonsense. Tag the format
+and discard on mismatch rather than partially trusting it.
+
+**Parse structured telemetry as structure.** Slicing JSON with a fixed-width regex
+truncates objects. Worse, BSD `grep` caps BRE interval counts at 255, so a pattern like
+`.\{0,500\}` fails and returns NOTHING, which reads as "no data" rather than as an
+error. Walk braces and parse real JSON.
+
+`statusline/` in this repo carries a working implementation: per-window quota bars for
+each vendor, an MCP health gauge that distinguishes *configured* from *served a call*
+from *disconnected*, and an identity badge placed first on the line so a narrow terminal
+truncates the disposable fields rather than the one saying which account is being spent.
 
 ## Anti-patterns (the expensive failures)
 
