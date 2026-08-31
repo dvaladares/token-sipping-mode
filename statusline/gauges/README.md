@@ -74,3 +74,48 @@ than a fake zero.
 That third and fourth case are the point. **A gauge nobody has seen alarm is not a
 gauge**, and a gauge that has only ever been seen to alarm may simply be stuck on. Prove
 both directions before you trust either.
+
+## `cache-verdict.py` and `cache-field.sh`
+
+Find prompt-cache rebuilds, and put the cost on screen while it still means something.
+
+```console
+$ python3 cache-verdict.py            # full report, last 6h
+$ python3 cache-verdict.py watch      # one line, for a statusline or heartbeat
+$ ./cache-field.sh                    # coloured statusline field, or nothing
+```
+
+Set `CLAUDE_TRANSCRIPT_DIRS` if you run more than one config home:
+
+```console
+$ export CLAUDE_TRANSCRIPT_DIRS="$HOME/.claude $HOME/.claude-work"
+```
+
+**Why.** A rebuild is invisible while it happens and costs roughly 20x a cached turn:
+written tokens bill at ~2x, cached reads at ~0.1x. Measured on one machine in one day:
+
+| event | cost | cause |
+| --- | --- | --- |
+| an MCP server flapped mid-session | ~75k written | tool list changed, no user action at all |
+| a restart with one MCP server missing | 605k written | prefix changed, 25 min gap, well inside the TTL |
+
+Neither surfaced at the time. Both were found hours later by reading transcripts.
+
+**What it reads.** The API's own per-call accounting: `cache_read_input_tokens`,
+`cache_creation_input_tokens`, `input_tokens`. Nothing is estimated.
+
+**Two mistakes worth inheriting rather than repeating.**
+
+1. *Do not require a "mark" before a restart and then report the first turns after it.*
+   The turns immediately after a mark are still pre-restart. Version one of this tool
+   printed "the cache HELD" while the very next call showed `cache_read=0` and 605,071
+   written. It now finds rebuilds by signature and reports the gap that caused each,
+   so no human has to remember to arm anything.
+
+2. *Deduplicate before totalling.* The same logical call appears more than once, from
+   streaming records and from multiple transcripts. Without dedup the waste total was
+   inflated by 60%.
+
+**Reading the gap is how you learn the cause.** A gap longer than the TTL means time
+expired the entry on its own. A short gap means the PREFIX changed, which in practice
+means the MCP server set, the available agent types, or the model.
