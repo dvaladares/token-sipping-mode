@@ -24,11 +24,46 @@ makes the final call on anything that lands, posts, or gets graded.
 v2 (2026-07-22): merged the verified-escalation, worker-footer, tool-first, and
 measurement ideas from ThomasLangbroek/frugal (reviewed clean); hardened the
 cross-vendor lane so Codex/agy budgets absorb load when Claude windows run hot.
+v3 (2026-09-01): the burn ladder, the measured cache and fan-out arithmetic, and a
+session-scoped statusline that shows the ladder's inputs on every turn.
 
 ## Rule zero: deterministic tools beat every model
 
 If grep, jq, git, gh, awk, or any deterministic command answers the question, no model
 runs at all - not even Haiku. A model call to do a tool's job is the purest waste tier.
+
+## Gauges first: read the burn before you route
+
+At the top of a session, and again before any fan-out, run
+`statusline/gauges/lanes.sh` (or read the statusline). It prints every budget gauge,
+probes every delegation lane, and names the ladder rung below. Route only to lanes it
+reports `ok` or `cold` (cold means start it first; it prints the start command).
+
+A gauge with no real source prints `UNKNOWN`. It never invents a number. On a machine
+where nothing writes the quota files yet, the probe fails conservative: UNKNOWN forces
+L1. Headroom is never assumed.
+
+## The burn ladder (L0-L3)
+
+The rung is computed from the WORST of the two Claude windows. Obey the rung; do not
+re-derive it. A rung change mid-run is announced to the user in one line.
+
+| Rung | Trigger (either window) | What changes |
+|------|------------------------|--------------|
+| L0 SIP | 5h <50% and 7d <40% | Standard rules below. Nothing extra. |
+| L1 LEAN | 5h >=50% or 7d >=40% | No top-tier delegates except money and security judgment. All multi-step work goes to the mid and bottom tiers. Wakeup ticks stretch to >=60 min. Posts and comments batch per tick, never per event. |
+| L2 DRAIN | 5h >=75% or 7d >=65% | External-first: second-vendor and local lanes take ALL bulk work. A main-loop spot-verify pass is MANDATORY before any delegate output lands, posts, or enters a verdict. Every poll becomes a watcher script. Every main-loop turn ends by updating a checkpoint file, so a cap costs nothing. |
+| L3 EMBER | 5h >=90% or 7d >=85% | Main loop does ONLY: checkpoints, relaunchers, and human-facing posts. Bulk work runs exclusively on external and local lanes. Arm a wakeup at the reset time, then go dark cleanly rather than burn the tail. |
+
+UNKNOWN or stale gauges (>30 min) force L1 minimum. A top-tier main loop drains the
+weekly window faster; when the main loop is the most expensive model you have, treat the
+7d thresholds as if the gauge read 10 points higher.
+
+External-lane tie-break when more than one lane is available: route by task shape first
+(real reasoning a grunt cannot do -> the strongest external model; code-shaped work ->
+the code CLI; single-transform bulk text -> the local model; everything else -> the
+general external CLI). Budget breaks remaining ties: prefer the lane whose own window has
+the most headroom, and a local model costs nothing.
 
 ## Routing table
 
@@ -39,15 +74,17 @@ pick the cheaper tier or hold the task.
 |------|--------|-------------------|
 | Judgment (main loop) | Fable | Verdicts, synthesis, live-state reconciliation, ambiguity, risk calls, what-to-post/what-to-land decisions, final review of anything outward-facing |
 | Frontier delegate | your top-tier model | RESERVED, not default: novel-defect DISCOVERY (open-ended "find what is wrong here" sweeps), SECURITY-BOUNDARY work where a missed implication is a cross-tenant or money hole, and multi-file BUILD tasks carrying design judgment. In practice a frontier delegate finds whole defect classes a mid-tier sweep misses on the same task |
-| Verification (DEFAULT delegate) | Sonnet 5 (high effort; medium when the spec is tight) | The workhorse and the velocity lever - use it FIRST unless the task hits an Opus trigger above. Fix-verification legs ("does this diff actually close the defect it claims"), PR diff review, refute/verify passes, checkout + build + test runs, multi-PR sweeps, structured research, summarizing untrusted content. Faster and cheaper per leg, and review volume is the merge-queue bottleneck, so this is where latency is won |
+| Verification (DEFAULT delegate) | Sonnet 5 (high effort; medium when the spec is tight) | The workhorse and the velocity lever - use it FIRST unless the task hits a frontier trigger above. Fix-verification legs ("does this diff actually close the defect it claims"), PR diff review, refute/verify passes, checkout + build + test runs, multi-PR sweeps, structured research, summarizing untrusted content. Faster and cheaper per leg, and review volume is the merge-queue bottleneck, so this is where latency is won |
 | Mechanical | Haiku (high effort) | Status polls, grep/scan/inventory, file listings, format checks, single-query lookups wrapped in simple logic |
 | External lane | Codex CLI (GPT 5.x tiers), agy (Gemini and others) | Second opinions, adversarial review passes, and bulk legwork; burns a SEPARATE vendor budget - see the shunt rule below |
+| Local lane | a local model server on the machine's own GPU | Zero-token bulk text work: log filtering, extraction, batch transforms, draft prose, classification sweeps. No cloud budget at all. Quality floor is lower - never a verdict, never outward-facing without a higher-tier pass |
 
-**Default-to-mid-tier rule.** Reach for Sonnet 5 first. Escalate an individual leg to Opus 5 only
-when it meets a trigger: open-ended defect discovery, a security/tenant/money boundary, or a build with real design
-choices. Do not escalate for volume review work - the panel's redundancy plus a Fable verdict on top already covers
-what a bigger single reviewer would add, and the slower leg costs merge velocity. When in doubt, run Sonnet and spot-
-check its decisive claim yourself in the main loop.
+**Default-to-mid-tier rule.** Reach for Sonnet 5 first. Escalate an individual leg to the
+frontier tier only when it meets a trigger: open-ended defect discovery, a
+security/tenant/money boundary, or a build with real design choices. Do not escalate for
+volume review work - the panel's redundancy plus a main-loop verdict on top already covers
+what a bigger single reviewer would add, and the slower leg costs merge velocity. When in
+doubt, run Sonnet and spot-check its decisive claim yourself in the main loop.
 
 Cross-vendor tier mapping is approximate (roughly: Sol ~ Fable-class, Terra ~ Opus/Sonnet-
 class, Luna ~ Haiku-class; Gemini flash tiers ~ Haiku-class, pro tiers ~ Sonnet-class);
@@ -191,6 +228,99 @@ Workers do not talk their way up the ladder:
    work; never serialize the whole board behind one blocker, and never poll a stuck
    delegate on the expensive tier.
 
+## Cache and fan-out arithmetic (measured, not estimated)
+
+Four rules added after measuring a full week of real spend from the API's own billing
+fields. All four cost nothing to follow. None of them tunes the cache: caching is
+automatic and needs no configuration. Every rule here is about not BREAKING it.
+
+### The week, so the numbers are grounded
+
+Main loop: 5,832 turns, 3.03B read from cache, 30.9M written, 189K fresh, 99.0% hit.
+Subagents: 82 agents, 5,063 turns, 606M raw tokens.
+
+Billing weights that make the arithmetic work: **cache read = 0.1x base, 1-hour write =
+2x, 5-minute write = 1.25x, fresh input = 1x.** A written token is TWENTY TIMES dearer
+than a read one. Comparing raw token counts hides this and produces a wrong answer; an
+earlier pass of this same analysis under-reported rebuild cost by a factor of sixteen by
+doing exactly that.
+
+| Source | Raw | Billing-equivalent |
+| --- | --- | --- |
+| Main-loop cache reads | 3.03B | 303M |
+| Main-loop cache writes | 30.9M | 61.8M |
+| ...of which cold rebuilds | 12.7M | 25.4M |
+| Subagents, all in | 606M | 91.7M |
+
+**Subagents were about 20% of billed input. Cold rebuilds were about 7% of the main
+loop.** Fan-out is the lever. Cache hygiene is the side dish.
+
+### Rule 1: say the fan-out number out loud BEFORE spending it
+
+Measured average: **7.4M raw tokens per subagent** (606M over 82 agents). An agent's cost
+is roughly its turn count times its context size, and cache reads dominate, so a
+long-running agent on a big context is expensive even when it "does nothing".
+
+Before any fan-out, state the estimate in one line: `N agents x ~7.4M = X tokens`.
+
+- Ten agents is ~74M tokens. Say that sentence aloud. If it sounds absurd, restructure.
+- Above ~10 agents or ~10M estimated, restructure or ask the human first.
+- One ambitious audit measured at 11.7M subagent tokens. That SINGLE fan-out cost about
+  as much as every cache rebuild in the entire week combined.
+
+The estimate is not for accuracy. It is to make the spend audible before it happens.
+
+### Rule 2: one model per session
+
+Caches are per model. Switching mid-session pays a full cold rebuild.
+
+Measured switch costs, same session: **top tier to mid tier = 675,542 write tokens; mid
+tier back to top = 272,442.**
+
+| Day | Models run | Rebuilds |
+| --- | --- | --- |
+| Thu | one model only | 0 |
+| Tue | one model only | 0 |
+| Sat | two models | 8 |
+| Wed | two models | 10 |
+| Thu | two models | 7 |
+
+Pick a model for the session's hardest task and stay on it. Switching to save money on a
+cheaper tier costs more than it saves unless the rest of the session is long.
+
+**The counter-example matters.** One single-model day still took 9 rebuilds. Its gaps
+were 95, 88 and 458 minutes: TTL timeouts, not switches. Two distinct causes exist; do
+not diagnose one as the other. Keep a long session's turns inside the cache TTL, or
+accept the rebuild knowingly.
+
+### Rule 3: check MCP health at session start
+
+**A dead MCP server is silent, and it costs a rebuild on every session start.** Its tools
+vanish from the tool list, the tool list sits at the very top of the request, and the
+cache matches on an exact prefix from byte one. Change one byte up there and every block
+below it misses.
+
+Measured: one server dead for three days on an expired credential cost a 153,425-token
+rebuild on the next restart AND ran the session without that capability. The failure
+text `-32602 "Invalid request parameters"` reads like a config bug and is almost always
+an expired credential.
+
+The statusline in this repo renders an MCP line on every draw (`mcp 7 cfg · 2 live`, or
+`DOWN <name>` in red), so nobody has to remember to check.
+
+### Rule 4: name what you do NOT know, or do not fan out
+
+A fan-out brief must state its unknowns: what the workers are looking for, what would
+count as done, and what the main loop cannot tell from where it sits. A brief that
+cannot name its unknowns is not ready to spend. Write the sentence first; the fan-out
+that follows is usually half the size.
+
+### What NOT to do: routine cache monitoring
+
+Do not spend main-loop turns checking whether the cache is warm. The statusline shows
+warm percent, TTL countdown and the last miss on every render, from the harness's own
+`prompt_cache` object. Look at the line. Act when it says MISS or COLD. Otherwise leave it.
+
 ## What is NEVER delegated
 
 Governance and irreversibles stay in the main loop regardless of budget: cosign staging,
@@ -205,6 +335,9 @@ command) rather than re-running the sweep. Distrust flattering or suspiciously c
 results; a wrong cheap result that slips into a verdict costs more than the delegation
 saved. If a delegate's output smells off, re-run THAT slice one tier up, not the whole
 job at the top.
+
+Delegates with file access will happily read your own work and present it back as
+"industry practice". Verify provenance before trusting a research lane.
 
 ## Measurement (close the loop)
 
@@ -251,10 +384,17 @@ truncates objects. Worse, BSD `grep` caps BRE interval counts at 255, so a patte
 `.\{0,500\}` fails and returns NOTHING, which reads as "no data" rather than as an
 error. Walk braces and parse real JSON.
 
+**Scope every gauge to the session that reads it.** A cache-rebuild field that globbed
+every transcript on the machine showed every open session the same "rebuilt 25m ago".
+Prompt cache is per conversation. So is the gauge.
+
 `statusline/` in this repo carries a working implementation: per-window quota bars for
-each vendor, an MCP health gauge that distinguishes *configured* from *served a call*
-from *disconnected*, and an identity badge placed first on the line so a narrow terminal
-truncates the disposable fields rather than the one saying which account is being spent.
+each vendor with a pace indicator, the prompt-cache warm/TTL/miss field from the
+harness's own telemetry, an MCP health gauge that distinguishes *configured* from *served
+a call* from *disconnected*, and an identity badge placed first on the line so a narrow
+terminal truncates the disposable fields rather than the one saying which account is
+being spent. `statusline/gauges/lanes.sh` prints the same numbers, plus the ladder rung,
+for an agent to read.
 
 ## Anti-patterns (the expensive failures)
 
@@ -267,3 +407,5 @@ truncates the disposable fields rather than the one saying which account is bein
 - Polling a background job on the expensive tier when a notification or cheap watcher
   would wake you.
 - Burning the Claude window on bulk legwork while the Codex and agy budgets sit idle.
+- Switching models mid-session to "save" tokens, then paying a 600K-token rebuild.
+- A fan-out nobody said the number for.
