@@ -152,3 +152,30 @@ Neither surfaced at the time. Both were found hours later by reading transcripts
 **Reading the gap is how you learn the cause.** A gap longer than the TTL means time
 expired the entry on its own. A short gap means the PREFIX changed, which in practice
 means the MCP server set, the available agent types, or the model.
+
+## `lanes.sh`
+
+The one-call burn probe. Prints every gauge, every lane, and the ladder rung the skill
+should obey. Read-only, under a second, safe at the top of every turn.
+
+```console
+$ ./lanes.sh
+GAUGE claude_5h 56 1788303000
+GAUGE claude_7d 11 1788436800
+GAUGE quota_age_s 14
+GAUGE quota_seat m2
+GAUGE seat m2 56 11 14
+GAUGE seat m4 UNKNOWN 10 22
+GAUGE codex_5h 68 1788309120
+GAUGE codex_7d 43 1788804188
+LANE codex ok /opt/homebrew/bin/codex
+LANE agy ok /Users/you/.local/bin/agy
+LANE local missing
+RUNG L1 5h=56% 7d=11%
+```
+
+It reads the same `config.sh` the statusline reads, so both agree on where
+`quota-<seat>.json` lives. A seat that has never rendered does not appear. A window the
+harness did not send prints `UNKNOWN`, and UNKNOWN or stale (over 30 min) forces at least
+L1: headroom is never assumed. Override the file with `CLAUDE_QUOTA_FILE`, the local-model
+probe with `LOCAL_LANE_BIN`.
