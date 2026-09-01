@@ -1,7 +1,7 @@
 #!/bin/bash
 # mcp-health.sh — MCP connection gauge for the Claude Code statusline.
 #
-# WHY THIS EXISTS (2026-08-31, from the operator): "Those are the kinds of things I would catch
+# WHY THIS EXISTS (Daniel, 2026-08-31): "Those are the kinds of things I would catch
 # myself fixing once and for all at the very beginning of a big long session, only to
 # realize halfway through that it was broken."
 #

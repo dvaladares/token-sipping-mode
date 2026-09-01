@@ -123,17 +123,42 @@ def fmt(val):
     return f"{pct_s} {reset_s}"
 
 
+def newest_mtime(root):
+    """Age of the freshest telemetry, in seconds, or None."""
+    files = []
+    today = datetime.date.today()
+    for back in (0, 1):
+        d = today - datetime.timedelta(days=back)
+        files.extend(glob.glob(os.path.join(root, d.strftime("%Y/%m/%d"), "*.jsonl")))
+    if not files:
+        return None
+    return int(datetime.datetime.now().timestamp() - max(os.path.getmtime(f) for f in files))
+
+
 def main():
     root = os.path.expanduser("~/.codex/sessions")
     if not os.path.isdir(root):
-        print("- - - -")       # codex not installed: report nothing, never a zero
+        print("- - - - -")     # codex not installed: report nothing, never a zero
         return 0
     try:
         windows = latest_windows(root)
+        age = newest_mtime(root)
     except Exception:
-        print("- - - -")
+        print("- - - - -")
         return 0
-    print(f"{fmt(pick(windows, WINDOW_5H, 60))} {fmt(pick(windows, WINDOW_7D, 1440))}")
+    # FIFTH FIELD: age of the telemetry in seconds, or '-'.
+    #
+    # WHY (added 2026-08-31, within an hour of the parser itself). This gauge only
+    # refreshes when codex ACTUALLY RUNS. A stale 100% and a live 100% are byte for
+    # byte identical, so the statusline showed "codex 5h 100%" for 45 minutes after
+    # the window had already reset to 0%. The lane was free and the gauge said it was
+    # exhausted, which is the same absence-reads-wrong fault in the other direction:
+    # here it cost unnecessary caution rather than an overspend.
+    #
+    # A canary call is what exposed it. The caller should treat anything older than
+    # roughly half an hour as unverified and canary before trusting it.
+    print(f"{fmt(pick(windows, WINDOW_5H, 60))} {fmt(pick(windows, WINDOW_7D, 1440))} "
+          f"{age if age is not None else '-'}")
     return 0
 
 

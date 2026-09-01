@@ -1,0 +1,21 @@
+{
+  "session_id": "00000000-0000-4000-8000-000000000003",
+  "cwd": "__CWD__",
+  "model": {"id": "claude-opus-5[1m]", "display_name": "Opus 5 (1M context)"},
+  "context_window": {"context_window_size": 1000000, "total_input_tokens": 921337, "used_percentage": 92.1},
+  "exceeds_200k_tokens": true,
+  "cost": {"total_cost_usd": 0, "total_duration_ms": 30000, "total_lines_added": 0, "total_lines_removed": 0},
+  "rate_limits": {
+    "five_hour": {"used_percentage": 99.6, "resets_at": "2026-09-01T23:50:00.000Z"},
+    "seven_day": {"used_percentage": 70.2, "resets_at": "2026-09-03T12:00:00+00:00"}
+  },
+  "oauthAccount": {
+    "emailAddress": "dev@acme.example",
+    "organizationType": "claude_team",
+    "organizationName": "Acme",
+    "organizationRateLimitTier": "",
+    "userRateLimitTier": ""
+  },
+  "subagents": null,
+  "vim": {"mode": "normal"}
+}

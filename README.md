@@ -13,15 +13,22 @@ This repo is the whole kit:
 | Piece | What it does |
 |---|---|
 | `SKILL.md` | The operating mode itself: a routing table, a delegation contract, spend discipline rules, and the anti-pattern list |
-| `statusline/statusline.sh` | A terminal statusline: model, context %, branch, thinking state, and rate-limit dot bars for your 5-hour and weekly windows |
+| `statusline/statusline.sh` | A session-scoped terminal statusline: model, which account and seat you are spending, context %, prompt-cache warmth and TTL, cache misses, compactions, cost, git, PR, 5-hour and weekly rate-limit bars with pace, codex's quota, MCP health. See [statusline/README.md](statusline/README.md) |
+| `statusline/gauges/` | The readers behind it: per-session cache telemetry, two-window codex quota, MCP health. Each omits rather than guesses |
 | `statusline/frugal/` | The frugal meter: three small Python scripts that measure what delegation actually saved you, in dollars, live in the statusline |
+| `statusline/tests/` | 69 render cases plus suites for every gauge; `tests/run-all.sh` |
 
 The statusline in action:
 
 ```
-Fable 5 | 44% | my-project (feature/thing*) | thinking | frugal $603.41/$603.41 saved
-current  ##OOOOOOOO 21%  10:20pm
-weekly   ###OOOOOOO 26%  jul 30, 8:00am
+Fable 5.1 (claude-fable-5-1) · 👤 you@example.com [MAX 20x] (M2)
+✍️  40% (80k/200k) · ⚡ 91% warm (ttl 45m) · $1.23 · frugal $603.41/$603.41 saved · cache miss 14m ago (2×, ~310k rewritten)
+my-project (feature/thing* ⇡2) · +10 −2 · xhigh · ⏱ 1h13m
+claude 5h ●●●●●●○○○○ 56% ⇡12  ↻ 6:50pm (23m)
+claude 7d ●○○○○○○○○○ 11% ⇣49  ↻ Thu Sep 3, 8:00am (1d13h)
+codex 5h  ●●●●●●●○○○ 68%      ↻ 8:32pm (2h07m)
+← 2 agents · PR #4242 · approved · ⇄ today  claude 7 · codex 19 (26.7M tok) · agy 35 runs
+mcp 7 cfg · 3 live
 ```
 
 That `frugal $603.41 saved` figure is not vibes. It is the difference between what
@@ -63,21 +70,26 @@ exists to prevent.
 2. **The statusline.**
 
    ```bash
+   statusline/install.sh ~/.claude            # add every CLAUDE_CONFIG_DIR home you use
    mkdir -p ~/.claude/frugal/bin
-   cp statusline/statusline.sh ~/.claude/statusline.sh
    cp statusline/frugal/*.py ~/.claude/frugal/bin/
    ```
 
-   In `~/.claude/settings.json`:
+   `install.sh` symlinks `~/.claude/statusline.sh` into the clone, so `git pull`
+   updates it, and prints this snippet for `~/.claude/settings.json` if it is missing:
 
    ```json
    {
      "statusLine": {
        "type": "command",
-       "command": "bash ~/.claude/statusline.sh"
+       "command": "bash ~/.claude/statusline.sh",
+       "refreshInterval": 30
      }
    }
    ```
+
+   Seat labels and toggles live in `~/.config/claude-statusline/config.sh`; see
+   [statusline/README.md](statusline/README.md).
 
 3. **The frugal meter.** `log_metrics.py` is a `SubagentStop` hook: every time a
    subagent finishes, it appends one line of token accounting to

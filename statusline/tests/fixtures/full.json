@@ -1,0 +1,60 @@
+{
+  "session_id": "00000000-0000-4000-8000-000000000001",
+  "session_name": "statusline v2",
+  "transcript_path": "__TRANSCRIPT__",
+  "cwd": "__CWD__",
+  "version": "2.1.257",
+  "model": {"id": "claude-fable-5-1", "display_name": "Fable 5.1"},
+  "workspace": {
+    "current_dir": "__CWD__", "project_dir": "__CWD__", "added_dirs": [],
+    "repo": {"host": "github.com", "owner": "example-org", "name": "example-repo"}
+  },
+  "output_style": {"name": "Concise"},
+  "effort": {"level": "xhigh"},
+  "fast_mode": false,
+  "agent": {"name": "reviewer"},
+  "worktree": {"name": "steady-walrus", "path": "__CWD__", "branch": "worktree-steady-walrus", "original_branch": "main"},
+  "cost": {
+    "total_cost_usd": 1.2345,
+    "total_duration_ms": 4380000,
+    "total_api_duration_ms": 900000,
+    "total_lines_added": 10,
+    "total_lines_removed": 2
+  },
+  "context_window": {
+    "total_input_tokens": 80000,
+    "total_output_tokens": 5000,
+    "context_window_size": 200000,
+    "used_percentage": 40,
+    "remaining_percentage": 60,
+    "current_usage": {"input_tokens": 200, "cache_creation_input_tokens": 8000, "cache_read_input_tokens": 71800, "output_tokens": 500}
+  },
+  "exceeds_200k_tokens": false,
+  "prompt_cache": {
+    "warm": true,
+    "caching_observed": true,
+    "ttl": "1h",
+    "expires_at": __EXPIRES__,
+    "requests": 14,
+    "misses": 2,
+    "expected_rebuilds": 1,
+    "hit_ratio": 0.912,
+    "cache_write_tokens": 352000,
+    "miss_recache_tokens": 310200,
+    "last_miss_at": __LAST_MISS__,
+    "recache_tokens_if_cold": 45000
+  },
+  "rate_limits": {
+    "five_hour": {"used_percentage": 56, "resets_at": 1788303000},
+    "seven_day": {"used_percentage": 11, "resets_at": 1788436800}
+  },
+  "oauthAccount": {
+    "emailAddress": "someone@example.com",
+    "organizationType": "claude_max",
+    "organizationName": "",
+    "organizationRateLimitTier": "default_claude_max_20x",
+    "userRateLimitTier": ""
+  },
+  "subagents": [{"id": "a"}, {"id": "b"}],
+  "pr": {"number": 4242, "url": "https://github.com/example-org/example-repo/pull/4242", "review_state": "approved"}
+}

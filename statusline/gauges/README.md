@@ -1,17 +1,49 @@
 # Gauges
 
-Two small, self-contained readers for a Claude Code statusline. Both exist because a
-budget number you cannot see cannot pace you, and because the way these numbers fail is
-almost always **absence rendered as good news**.
+Small, self-contained readers for a Claude Code statusline. They exist because a budget
+number you cannot see cannot pace you, and because the way these numbers fail is almost
+always **absence rendered as good news**.
 
-Neither tool invents a value. No data means no output, and the caller omits the field.
+No tool here invents a value. No data means no output, and the caller omits the field.
+
+## `session-telemetry.py`
+
+Per-session cache and compaction telemetry from **this session's** transcript only.
+
+```
+$ python3 session-telemetry.py <transcript_path> [now_epoch]
+cache_pct 93
+rebuild_kind OLD
+rebuild_size 120000
+rebuild_age_s 3000
+ttl_kind 1h
+ttl_left_s 2711
+last_api_age_s 889
+compact_n 2
+compact_age_s 3400
+compact_pre 115016
+compact_post 19417
+```
+
+One tail read (3 MB) of one file, one python start, every key optional. The statusline
+uses it as the FALLBACK behind Claude Code's native `prompt_cache` object (v2.1.251+),
+and as the only source for compactions (`compact_boundary` records).
+
+**Why it replaced `cache-field.sh`.** That script globbed every transcript in every
+config home and wrote one shared cache file, so every open session showed the same
+"cache rebuilt 25m ago", whichever session had actually rebuilt. Prompt cache is per
+conversation; the gauge must be too. The rebuild signature is unchanged and still comes
+from the API's own billing fields: `cache_read == 0` with `cache_creation >= 20k` is a
+full rebuild; `cache_read > 0` with `cache_creation >= 50k` means the prefix moved.
+The TTL anchor is the last response's timestamp, because Anthropic refreshes the cache
+on every hit, plus 1h or 5m depending on which `ephemeral_*_input_tokens` it reported.
 
 ## `codex-quota.py`
 
 Reads codex's own rate-limit telemetry for **both** windows and prints one line:
 
 ```
-<5h_pct> <5h_resets_at> <7d_pct> <7d_resets_at>
+<5h_pct> <5h_resets_at> <7d_pct> <7d_resets_at> <telemetry_age_s>
 ```
 
 `-` for anything genuinely unknown. Example:
@@ -63,26 +95,27 @@ statusline render must never block.
 ## Testing
 
 ```console
-$ ./test/test-mcp-health.sh
-ALL CASES PASS
+$ ../tests/run-all.sh
+ALL SUITES PASS
 ```
 
-Four cases: healthy, a forced disconnect that must raise `DOWN` **and name the server**,
-a reconnect that must clear it, and no data at all which must print **nothing** rather
-than a fake zero.
+`tests/test-mcp-health.sh` has four cases: healthy, a forced disconnect that must raise
+`DOWN` **and name the server**, a reconnect that must clear it, and no data at all which
+must print **nothing** rather than a fake zero. `tests/test-session-telemetry.sh` pins
+"now" and checks every key against a synthetic transcript.
 
 That third and fourth case are the point. **A gauge nobody has seen alarm is not a
 gauge**, and a gauge that has only ever been seen to alarm may simply be stuck on. Prove
 both directions before you trust either.
 
-## `cache-verdict.py` and `cache-field.sh`
+## `cache-verdict.py`
 
-Find prompt-cache rebuilds, and put the cost on screen while it still means something.
+A machine-wide diagnostic (not a statusline field): find every prompt-cache rebuild in
+the last N hours across all config homes, with the gap that caused each.
 
 ```console
 $ python3 cache-verdict.py            # full report, last 6h
-$ python3 cache-verdict.py watch      # one line, for a statusline or heartbeat
-$ ./cache-field.sh                    # coloured statusline field, or nothing
+$ python3 cache-verdict.py watch      # one line, for a heartbeat
 ```
 
 Set `CLAUDE_TRANSCRIPT_DIRS` if you run more than one config home:
