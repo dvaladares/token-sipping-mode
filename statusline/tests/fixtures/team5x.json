@@ -1,0 +1,14 @@
+{
+  "session_id": "00000000-0000-4000-8000-000000000007",
+  "cwd": "__CWD__",
+  "model": {"id": "claude-fable-5-1", "display_name": "Fable 5.1"},
+  "context_window": {"context_window_size": 1000000, "total_input_tokens": 589000, "used_percentage": 59},
+  "oauthAccount": {
+    "emailAddress": "dev@acme.example",
+    "organizationType": "claude_team",
+    "organizationName": "Acme",
+    "organizationRateLimitTier": "default_raven",
+    "userRateLimitTier": "default_claude_max_5x"
+  },
+  "rate_limits": {"seven_day": {"used_percentage": 10, "resets_at": 1788552000}}
+}

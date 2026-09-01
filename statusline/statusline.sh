@@ -338,18 +338,31 @@ elif [ -n "$model_name" ]; then
   model_field="${BOLD}${C_SKY_BLUE}${model_name}${RESET}"
 fi
 
-# Account: the input JSON first; else this seat's own .claude.json. Never another seat's.
+# Account: the input JSON first; else this seat's own account record on disk. Never
+# another seat's.
+#
+# WHERE THE RECORD LIVES. With CLAUDE_CONFIG_DIR set, Claude Code keeps it in
+# <dir>/.claude.json. For the DEFAULT home it is ~/.claude.json (in $HOME), and a stale
+# ~/.claude/.claude.json may also exist WITHOUT the oauthAccount key. Found 2026-09-01:
+# the default seat read that stale file first, stopped, and showed "no account" while
+# ~/.claude.json held the email all along. So: try each candidate for THIS seat in order
+# and stop at the first that carries an email.
 account_email="$in_email"; org_type="$in_org_type"; org_name="$in_org_name"
 org_tier="$in_org_tier"; user_tier="$in_user_tier"
 if [ -z "$account_email" ]; then
-  account_file="$_cfgdir/.claude.json"
-  [ -f "$account_file" ] || account_file="$HOME/.claude.json"
-  if [ -f "$account_file" ]; then
+  if [ -z "${CLAUDE_CONFIG_DIR:-}" ] || [ "$_cfgdir" = "$HOME/.claude" ]; then
+    _acct_candidates="$HOME/.claude.json $_cfgdir/.claude.json"
+  else
+    _acct_candidates="$_cfgdir/.claude.json"
+  fi
+  for account_file in $_acct_candidates; do
+    [ -f "$account_file" ] || continue
     IFS="$US" read -r account_email org_type org_name org_tier user_tier < <(
       guard 0.2 jq -r 'def s(x): (x // "") | tostring;
         [ s(.oauthAccount.emailAddress), s(.oauthAccount.organizationType), s(.oauthAccount.organizationName),
           s(.oauthAccount.organizationRateLimitTier), s(.oauthAccount.userRateLimitTier) ] | join([31] | implode)' "$account_file")
-  fi
+    [ -n "$account_email" ] && break
+  done
 fi
 
 # Plan badge from the real tier fields only. Unknown tier -> no badge, not a guess.
@@ -362,11 +375,10 @@ case "$org_type" in
   claude_pro)
     account_color="$C_YELLOW"; account_badge="PRO" ;;
   claude_team)
-    case "$_tier_lc" in
-      *20x*) account_color="$C_MAGENTA"; account_badge="MAX 20x" ;;
-      *5x*)  account_color="$C_MAGENTA"; account_badge="MAX 5x" ;;
-      *)     account_badge="$(upper "${org_name:-team}") TEAM" ;;
-    esac ;;
+    # The plan is TEAM; the user's rate-limit tier (e.g. default_claude_max_5x) is shown
+    # as a suffix, not relabelled as a MAX plan the org does not have.
+    account_badge="$(upper "${org_name:-team}") TEAM"
+    case "$_tier_lc" in *20x*) account_badge="${account_badge} 20x" ;; *5x*) account_badge="${account_badge} 5x" ;; esac ;;
   claude_enterprise)
     account_color="$C_PURPLE"; account_badge="ENTERPRISE"; [ -n "$org_name" ] && account_badge="$(upper "$org_name") ENTERPRISE" ;;
   "") ;;
