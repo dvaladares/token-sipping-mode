@@ -1,0 +1,13 @@
+{
+  "session_id": "00000000-0000-4000-8000-000000000005",
+  "transcript_path": "__TRANSCRIPT__",
+  "cwd": "__CWD__",
+  "version": "2.1.200",
+  "model": {"id": "claude-opus-5", "display_name": "Opus 5"},
+  "context_window": {"context_window_size": 200000, "total_input_tokens": 50000, "used_percentage": 25},
+  "cost": {"total_cost_usd": 0.5},
+  "rate_limits": {
+    "five_hour": {"used_percentage": 10, "resets_at": 1788303000},
+    "seven_day": {"used_percentage": 5, "resets_at": 1788436800}
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "session_id": "00000000-0000-4000-8000-000000000002",
+  "cwd": "__CWD__",
+  "model": {"id": "claude-sonnet-5", "display_name": "Sonnet 5"},
+  "context_window": {"context_window_size": 200000, "total_input_tokens": 1000, "used_percentage": 0.5}
+}

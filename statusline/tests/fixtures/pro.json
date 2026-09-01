@@ -1,0 +1,7 @@
+{
+  "session_id": "00000000-0000-4000-8000-000000000004",
+  "cwd": "__CWD__",
+  "model": {"id": "claude-haiku-4-5-20251001", "display_name": "Haiku 4.5"},
+  "oauthAccount": {"emailAddress": "solo@example.org", "organizationType": "claude_pro"},
+  "rate_limits": {"seven_day": {"used_percentage": 33, "resets_at": 1788436800}}
+}
