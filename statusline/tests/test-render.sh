@@ -69,6 +69,23 @@ hasnot "$out" "\$0.00"
 hasnot "$out" "⏱"
 hasnot "$out" "value too great"
 
+echo "== team5x fixture: team plan with a max_5x user tier keeps the TEAM badge =="
+out=$(bash "$R" team5x --plain)
+has "$out" "dev@acme.example"
+has "$out" "[ACME TEAM 5x]"
+hasnot "$out" "MAX 5x"
+hasnot "$out" "claude 5h"
+
+echo "== default seat: account read from ~/.claude.json even when ~/.claude/.claude.json exists without one =="
+T=$(mktemp -d); mkdir -p "$T/.claude"
+printf '{"mcpServers":{}}\n' > "$T/.claude/.claude.json"
+printf '{"oauthAccount":{"emailAddress":"home@example.test","organizationType":"claude_pro"}}\n' > "$T/.claude.json"
+out=$(env -u CLAUDE_CONFIG_DIR HOME="$T" bash "$R" minimal --plain)
+rm -rf "$T"
+has "$out" "home@example.test"
+has "$out" "[PRO]"
+hasnot "$out" "no account"
+
 echo "== pro fixture: weekly only, never mislabeled as 5h =="
 out=$(bash "$R" pro --plain)
 has "$out" "[PRO]"
