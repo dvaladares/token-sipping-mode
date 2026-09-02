@@ -23,6 +23,10 @@
   <a href="#-any-other-harness">Other harnesses</a>
 </p>
 
+<p align="center">
+  <img src="docs/hero.png" alt="token-sipping-mode: the statusline, the three measured numbers, and the burn ladder on one card" width="100%">
+</p>
+
 ---
 
 ## 🧭 Why this exists

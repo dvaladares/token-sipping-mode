@@ -74,7 +74,7 @@ esac
 # Defaults. Override any of these in the config file, which is plain bash.
 SL_CACHE_DIR="${SL_CACHE_DIR:-$HOME/.cache/claude-statusline}"
 SL_QUOTA_DIR="${SL_QUOTA_DIR:-}"                 # empty = $SL_CACHE_DIR; set to share with other readers
-SL_LEGACY_LIB="${SL_LEGACY_LIB:-$HOME/.claude/limit-sentinel}"   # helpers looked up here after gauges/
+SL_LEGACY_LIB="${SL_LEGACY_LIB:-$HOME/.claude/gauges}"   # a second place to look for helpers, after gauges/
 SL_FRUGAL="${SL_FRUGAL:-$HOME/.claude/frugal/bin/statusline.py}"   # the installed hook copy; the repo copy is the fallback
 [ -f "$SL_FRUGAL" ] || SL_FRUGAL="$SL_HOME/frugal/statusline.py"
 SL_SHOW_CLAUDE_QUOTA="${SL_SHOW_CLAUDE_QUOTA:-1}"

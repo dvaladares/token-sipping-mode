@@ -68,7 +68,7 @@ countdowns and the cache TTL freeze while the session is idle.
 seat_label() { case "$1" in *".claude-max20x") printf 'M2' ;; *) printf 'M4' ;; esac; }
 
 # where other tools can read this seat's rate limits (quota-<seat>.json)
-SL_QUOTA_DIR="$HOME/.claude/torch-agy"
+SL_QUOTA_DIR="$HOME/.claude/shared-gauges"
 ```
 
 Everything else is a toggle or a threshold: `SL_SHOW_CODEX`, `SL_SHOW_DELEGATION`,
