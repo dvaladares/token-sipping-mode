@@ -101,7 +101,7 @@ Everything else is a toggle or a threshold: `SL_SHOW_CODEX`, `SL_SHOW_DELEGATION
 | codex 5h / 7d | codex's own `rate_limits` in `~/.codex/sessions/*/rollout*.jsonl`, both windows (`gauges/codex-quota.py`) |
 | ← N agents | `subagents` (only when it is a real array) |
 | PR #n · state | `pr.number`, `pr.url` (clickable), `pr.review_state`, `pr.kind` (MR for GitLab); merged/closed PRs filtered via `gh-pr-status-cache.json` |
-| ⇄ today | transcripts, codex rollouts and agy conversations touched today (cached 60 s) |
+| ⇄ today | runs and `(in · out)` tokens per lane from each lane's own records (`gauges/today-usage.py`, detached, 60 s cache): Claude transcripts touched today, codex rollouts' `total_token_usage`, agy conversation dirs. agy keeps no token telemetry, so it shows runs only |
 | mcp cfg / live / DOWN | `.claude.json` servers; tool attributions and disconnect notices in this transcript (`gauges/mcp-health.sh`) |
 
 ## Test and debug

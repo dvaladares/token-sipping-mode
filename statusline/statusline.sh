@@ -217,10 +217,11 @@ to_epoch_() {
 }
 
 int_() { R="${1%%.*}"; case "$R" in ''|*[!0-9-]*) R="" ;; esac; }
-hk_()  { # 123456 -> 123k, 1234567 -> 1.2M
+hk_()  { # 123456 -> 123k, 1234567 -> 1.2M, 1333735347 -> 1.3B
   int_ "$1"; local n="$R"; R=""
   [ -z "$n" ] && return
-  if   [ "$n" -ge 1000000 ]; then R="$((n/1000000)).$(( (n%1000000)/100000 ))M"
+  if   [ "$n" -ge 1000000000 ]; then R="$((n/1000000000)).$(( (n%1000000000)/100000000 ))B"
+  elif [ "$n" -ge 1000000 ]; then R="$((n/1000000)).$(( (n%1000000)/100000 ))M"
   elif [ "$n" -ge 1000 ];    then R="$((n/1000))k"
   else R="$n"; fi
 }
@@ -681,28 +682,26 @@ if [ -n "$pr_num" ]; then
   fi
 fi
 
-# Delegation gauge: today's runs per platform, plus codex's OWN quota (both windows).
-# Real sources only: claude = transcripts touched today under every ~/.claude*/projects;
-# codex = rollouts under ~/.codex/sessions/Y/M/D (tokens + rate_limits from the files);
-# agy = brain conversation dirs touched today. Refreshed by a detached job into an
-# atomic cache with a version tag; a reader discards any cache whose tag it does not
-# know, because a shifted column prints confident nonsense.
-deleg_cache="$SL_CACHE_DIR/delegation-lanes.cache"; deleg_ttl=60; DELEG_TAG="v5"
+# Delegation gauge: today's runs AND tokens per lane, from each lane's OWN records, plus
+# codex's OWN quota (both windows). gauges/today-usage.py does the counting:
+#   claude = transcripts touched today under every ~/.claude*/projects; in = input +
+#            cache_creation + cache_read of today's responses, out = output tokens
+#   codex  = rollouts under ~/.codex/sessions/Y/M/D; in/out/total from total_token_usage
+#   agy    = brain conversation dirs touched today; agy records no token usage on disk,
+#            so its tokens are `-` and the field is omitted, never invented
+# Refreshed by a detached job into an atomic cache with a version tag; a reader discards
+# any cache whose tag it does not know, because a shifted column prints confident nonsense.
+deleg_cache="$SL_CACHE_DIR/delegation-lanes.cache"; deleg_ttl=60; DELEG_TAG="v6"
 _deleg_refresh() {
-  local tmp="${deleg_cache}.tmp.$$" ymd cdx_dir cl_n cdx_n cdx_tok cdx_pct cdx_reset cdx7_pct cdx7_reset cdx_age agy_n f last cq
-  ymd=$(date +%Y-%m-%d)
-  cl_n="-"; cdx_n="-"; cdx_tok="-"; cdx_pct="-"; cdx_reset="-"; cdx7_pct="-"; cdx7_reset="-"; cdx_age="-"; agy_n="-"
-  cl_n=$(find "$HOME"/.claude*/projects -mindepth 2 -maxdepth 2 -name '*.jsonl' -newermt "$ymd" 2>/dev/null | wc -l | tr -d ' ')
-  [ -z "$cl_n" ] && cl_n="-"
+  local tmp="${deleg_cache}.tmp.$$" tu cq
+  local cl_n="-" cl_in="-" cl_out="-" cdx_n="-" cdx_in="-" cdx_out="-" cdx_tok="-" agy_n="-" agy_in="-" agy_out="-"
+  local cdx_pct="-" cdx_reset="-" cdx7_pct="-" cdx7_reset="-" cdx_age="-"
+  lib_ today-usage.py; tu="$R"
+  if [ -n "$tu" ]; then
+    read -r cl_n cl_in cl_out cdx_n cdx_in cdx_out cdx_tok agy_n agy_in agy_out < <(guard 20 python3 "$tu")
+    : "${cl_n:=-}" "${cl_in:=-}" "${cl_out:=-}" "${cdx_n:=-}" "${cdx_in:=-}" "${cdx_out:=-}" "${cdx_tok:=-}" "${agy_n:=-}" "${agy_in:=-}" "${agy_out:=-}"
+  fi
   if [ -d "$HOME/.codex/sessions" ]; then
-    cdx_dir="$HOME/.codex/sessions/$(date +%Y/%m/%d)"
-    cdx_n=$(ls "$cdx_dir" 2>/dev/null | wc -l | tr -d ' '); [ -z "$cdx_n" ] && cdx_n=0
-    cdx_tok=0
-    for f in "$cdx_dir"/*.jsonl; do
-      [ -f "$f" ] || continue
-      last=$(tail -c 120000 "$f" 2>/dev/null | grep -o '"total_token_usage":{[^}]*}' | tail -1 | grep -o '"total_tokens":[0-9]*' | cut -d: -f2)
-      [ -n "$last" ] && cdx_tok=$(( cdx_tok + last ))
-    done
     lib_ codex-quota.py; cq="$R"
     if [ -n "$cq" ]; then
       # FIVE fields; the fifth is telemetry age. A missing catch variable would append it
@@ -711,25 +710,22 @@ _deleg_refresh() {
       : "${cdx_pct:=-}" "${cdx_reset:=-}" "${cdx7_pct:=-}" "${cdx7_reset:=-}" "${cdx_age:=-}"
     fi
   fi
-  if [ -d "$HOME/.gemini/antigravity-cli/brain" ]; then
-    agy_n=$(find "$HOME/.gemini/antigravity-cli/brain" -mindepth 1 -maxdepth 1 -type d -newermt "$ymd" 2>/dev/null | wc -l | tr -d ' ')
-    [ -z "$agy_n" ] && agy_n="-"
-  fi
-  printf '%s %s %s %s %s %s %s %s %s %s %s\n' "$DELEG_TAG" "$(date +%s)" "$cl_n" "$cdx_n" "$cdx_tok" \
-      "$cdx_pct" "$cdx_reset" "$agy_n" "$cdx7_pct" "$cdx7_reset" "$cdx_age" > "$tmp" 2>/dev/null \
+  printf '%s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s\n' "$DELEG_TAG" "$(date +%s)" \
+      "$cl_n" "$cl_in" "$cl_out" "$cdx_n" "$cdx_in" "$cdx_out" "$cdx_tok" \
+      "$cdx_pct" "$cdx_reset" "$cdx7_pct" "$cdx7_reset" "$cdx_age" "$agy_n" "$agy_in" "$agy_out" > "$tmp" 2>/dev/null \
     && mv -f "$tmp" "$deleg_cache" 2>/dev/null
 }
 
 deleg_tag=""; deleg_ts=0
-cl_n=""; cdx_n=""; cdx_tok=""; cdx_pct=""; cdx_reset=""; agy_n=""; cdx7_pct=""; cdx7_reset=""; cdx_age=""
+cl_n=""; cl_in=""; cl_out=""; cdx_n=""; cdx_in=""; cdx_out=""; cdx_tok=""; cdx_pct=""; cdx_reset=""; cdx7_pct=""; cdx7_reset=""; cdx_age=""; agy_n=""; agy_in=""; agy_out=""
 if [ "$SL_SHOW_DELEGATION" = "1" ] || [ "$SL_SHOW_CODEX" = "1" ]; then
-  [ -f "$deleg_cache" ] && read -r deleg_tag deleg_ts cl_n cdx_n cdx_tok cdx_pct cdx_reset agy_n cdx7_pct cdx7_reset cdx_age < "$deleg_cache" 2>/dev/null
+  [ -f "$deleg_cache" ] && read -r deleg_tag deleg_ts cl_n cl_in cl_out cdx_n cdx_in cdx_out cdx_tok cdx_pct cdx_reset cdx7_pct cdx7_reset cdx_age agy_n agy_in agy_out < "$deleg_cache" 2>/dev/null
   case "$deleg_ts" in ''|*[!0-9]*) deleg_ts=0 ;; esac
   if [ "$deleg_tag" != "$DELEG_TAG" ]; then
-    cl_n=""; cdx_n=""; cdx_tok=""; cdx_pct=""; cdx_reset=""; agy_n=""; cdx7_pct=""; cdx7_reset=""; cdx_age=""; deleg_ts=0
+    cl_n=""; cl_in=""; cl_out=""; cdx_n=""; cdx_in=""; cdx_out=""; cdx_tok=""; cdx_pct=""; cdx_reset=""; cdx7_pct=""; cdx7_reset=""; cdx_age=""; agy_n=""; agy_in=""; agy_out=""; deleg_ts=0
   fi
   [ $(( now_epoch - deleg_ts )) -ge "$deleg_ttl" ] && ( _deleg_refresh ) >/dev/null 2>&1 &
-  for v in cl_n cdx_n cdx_tok cdx_pct cdx_reset agy_n cdx7_pct cdx7_reset cdx_age; do
+  for v in cl_n cl_in cl_out cdx_n cdx_in cdx_out cdx_tok cdx_pct cdx_reset cdx7_pct cdx7_reset cdx_age agy_n agy_in agy_out; do
     eval "[ \"\$$v\" = \"-\" ] && $v=\"\""
   done
 fi
@@ -740,18 +736,24 @@ if [ "$SL_SHOW_CODEX" = "1" ]; then
   quota_line_ "codex 7d" "$cdx7_pct" "$cdx7_reset" 604800; line_cdx7="$R"
 fi
 
+# One shape for every lane: "<lane> <runs> (<in> in · <out> out)". The token pair is
+# omitted when the lane records none (agy today), and dropped on a narrow pane. Input
+# for Claude includes cache reads on purpose: that is what carrying the context costs.
+lane_seg_() { # color label runs in out -> R
+  local color="$1" label="$2" n="$3" tin="$4" tout="$5" a b
+  R=""; [ -z "$n" ] && return
+  R="${color}${label} ${BOLD}${n}${RESET}"
+  if [ "$SL_NARROW" = "0" ] && [ -n "$tin" ] && [ -n "$tout" ] && [ "$tin" -gt 0 ] 2>/dev/null; then
+    hk_ "$tin"; a="$R"; hk_ "$tout"; b="$R"
+    R="${color}${label} ${BOLD}${n}${RESET} ${C_MUTED_GRAY}(${a} in · ${b} out)${RESET}"
+  fi
+}
 deleg_str=""
 if [ "$SL_SHOW_DELEGATION" = "1" ]; then
   parts=""
-  [ -n "$cl_n" ] && { join_ "$parts" "${C_SKY_BLUE}claude ${BOLD}${cl_n}${RESET}"; parts="$R"; }
-  if [ -n "$cdx_n" ]; then
-    cseg="${C_CYAN}codex ${BOLD}${cdx_n}${RESET}"
-    if [ -n "$cdx_tok" ] && [ "$cdx_tok" -gt 0 ] 2>/dev/null && [ "$SL_NARROW" = "0" ]; then
-      hk_ "$cdx_tok"; cseg="${cseg} ${C_MUTED_GRAY}(${R} tok)${RESET}"
-    fi
-    join_ "$parts" "$cseg"; parts="$R"
-  fi
-  [ -n "$agy_n" ] && { join_ "$parts" "${C_PURPLE}agy ${BOLD}${agy_n}${RESET}"; parts="$R"; }
+  lane_seg_ "$C_SKY_BLUE" claude "$cl_n" "$cl_in" "$cl_out";   [ -n "$R" ] && { seg="$R"; join_ "$parts" "$seg"; parts="$R"; }
+  lane_seg_ "$C_CYAN"     codex  "$cdx_n" "$cdx_in" "$cdx_out"; [ -n "$R" ] && { seg="$R"; join_ "$parts" "$seg"; parts="$R"; }
+  lane_seg_ "$C_PURPLE"   agy    "$agy_n" "$agy_in" "$agy_out"; [ -n "$R" ] && { seg="$R"; join_ "$parts" "$seg"; parts="$R"; }
   [ -n "$parts" ] && deleg_str="${C_LIGHT_GRAY}⇄ today${RESET}  ${parts} ${C_MUTED_GRAY}runs${RESET}"
 fi
 

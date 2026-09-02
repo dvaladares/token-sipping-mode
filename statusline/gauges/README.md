@@ -179,3 +179,19 @@ It reads the same `config.sh` the statusline reads, so both agree on where
 harness did not send prints `UNKNOWN`, and UNKNOWN or stale (over 30 min) forces at least
 L1: headroom is never assumed. Override the file with `CLAUDE_QUOTA_FILE`, the local-model
 probe with `LOCAL_LANE_BIN`.
+
+## `today-usage.py`
+
+Today's runs and tokens per delegation lane, from each lane's own records, one line:
+
+```
+<claude_n> <claude_in> <claude_out> <codex_n> <codex_in> <codex_out> <codex_tok> <agy_n> <agy_in> <agy_out>
+```
+
+Claude: transcripts touched since local midnight; `in` is input plus cache creation plus
+cache reads of today's responses, `out` is output tokens. Codex: today's rollouts; the last
+`total_token_usage` object per file. agy: conversation dirs touched today; agy writes no
+token usage anywhere on disk (checked 2026-09-01), so its tokens print `-` and the
+statusline omits them. This reads every transcript touched today, which can be hundreds
+of megabytes, so it runs only inside the statusline's detached 60 s refresh, never per
+render. Feeds the `⇄ today  claude 7 (1.3B in · 4.9M out) · codex 21 (28M in · 206k out) · agy 57 runs` line.

@@ -70,8 +70,8 @@ fi
 cdx5="UNKNOWN"; cdx5_reset=""; cdx7="UNKNOWN"; cdx7_reset=""
 DELEG="$SL_CACHE_DIR/delegation-lanes.cache"
 if [ -f "$DELEG" ]; then
-  read -r tag _dts _cl _cn _ct _p5 _r5 _agy _p7 _r7 _age < "$DELEG" 2>/dev/null
-  if [ "${tag:-}" = "v5" ]; then
+  read -r tag _dts _cl _cli _clo _cn _cin _cout _ct _p5 _r5 _p7 _r7 _age _agy _ain _aout < "$DELEG" 2>/dev/null
+  if [ "${tag:-}" = "v6" ]; then
     [ -n "${_p5:-}" ] && [ "$_p5" != "-" ] && cdx5="$_p5"
     [ -n "${_r5:-}" ] && [ "$_r5" != "-" ] && cdx5_reset="$_r5"
     [ -n "${_p7:-}" ] && [ "$_p7" != "-" ] && cdx7="$_p7"
