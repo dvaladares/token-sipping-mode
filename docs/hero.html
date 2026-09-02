@@ -1,0 +1,80 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+  :root{--bg:#0b0e14;--panel:#111621;--edge:#232a3a;--ink:#e8ebf2;--dim:#8b93a7;--mute:#5b6478;
+        --purple:#a78bfa;--blue:#38bdf8;--green:#34d399;--amber:#fbbf24;--red:#f87171;--gold:#fcd34d;--cyan:#67e8f9;--pink:#f9a8d4}
+  *{box-sizing:border-box}
+  body{margin:0;width:1600px;height:900px;background:radial-gradient(1200px 600px at 20% -10%,#1b1440 0%,var(--bg) 55%),var(--bg);color:var(--ink);
+       font-family:-apple-system,"SF Pro Display","Inter",Helvetica,Arial,sans-serif;overflow:hidden;position:relative}
+  .wrap{padding:54px 64px 0 64px}
+  .top{display:flex;justify-content:space-between;align-items:flex-end}
+  h1{margin:0;font-size:46px;letter-spacing:-.5px;font-weight:800}
+  h1 .tea{font-size:40px;margin-right:10px}
+  .tag{margin:8px 0 0;font-size:24px;color:var(--dim);font-weight:500}
+  .tag b{color:var(--ink);font-weight:700}
+  .badges{display:flex;gap:8px;margin-bottom:6px}
+  .badge{font:600 13px/1 ui-monospace,Menlo,monospace;padding:7px 11px;border-radius:7px;background:#1a2030;color:var(--dim);border:1px solid var(--edge)}
+  .badge.p{color:var(--purple);border-color:#3b2f6e}.badge.b{color:var(--blue);border-color:#1e3a5f}.badge.g{color:var(--green);border-color:#1b4d3a}
+
+  .term{margin-top:30px;background:var(--panel);border:1px solid var(--edge);border-radius:14px;box-shadow:0 30px 80px rgba(0,0,0,.55);overflow:hidden}
+  .bar{height:38px;background:#171c28;border-bottom:1px solid var(--edge);display:flex;align-items:center;padding:0 14px;gap:8px}
+  .dot{width:12px;height:12px;border-radius:50%}
+  .bar .t{margin-left:auto;margin-right:auto;font:500 13px ui-monospace,Menlo,monospace;color:var(--mute)}
+  pre{margin:0;padding:24px 26px 26px;font:500 19.5px/1.66 ui-monospace,"SF Mono",Menlo,monospace;white-space:pre;color:var(--ink)}
+  .sky{color:#7dd3fc}.mag{color:var(--pink)}.gr{color:var(--green)}.gold{color:var(--gold)}.dim{color:var(--dim)}.mute{color:var(--mute)}
+  .yel{color:var(--amber)}.red{color:var(--red)}.cy{color:var(--cyan)}.pu{color:var(--purple)}.lg{color:#c7cdd9}.b{font-weight:700}
+
+  .row{display:flex;gap:18px;margin-top:28px}
+  .stat{flex:1;background:var(--panel);border:1px solid var(--edge);border-radius:14px;padding:22px 24px}
+  .stat .n{font-size:40px;font-weight:800;letter-spacing:-1px;line-height:1}
+  .stat .l{margin-top:8px;font-size:15px;color:var(--dim);line-height:1.35}
+  .ladder{flex:1.9;background:var(--panel);border:1px solid var(--edge);border-radius:14px;padding:18px 22px}
+  .ladder .h{font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute);font-weight:700;margin-bottom:12px}
+  .rungs{display:flex;gap:8px}
+  .rung{flex:1;border-radius:9px;padding:12px 12px;font:700 14px/1.25 ui-monospace,Menlo,monospace;color:#0b0e14}
+  .rung small{display:block;font-weight:600;font-size:12px;margin-top:5px;opacity:.85;white-space:nowrap}
+  .r0{background:#34d399}.r1{background:#fbbf24}.r2{background:#fb923c}.r3{background:#f87171}
+
+  .bottom{display:flex;justify-content:space-between;align-items:center;gap:40px;margin-top:30px}
+  .law{font-size:22px;color:var(--dim);max-width:1010px;line-height:1.35}
+  .law b{color:var(--ink)}
+  .foot{font:600 18px ui-monospace,Menlo,monospace;color:var(--blue);white-space:nowrap}
+  .foot span{color:var(--mute);font-weight:500;margin-left:14px}
+</style></head><body>
+<div class="wrap">
+  <div class="top">
+    <div>
+      <h1><span class="tea">🫖</span>token-sipping-mode</h1>
+      <p class="tag">Run AI coding agents on a capped budget. <b>Delegate the legwork. Own the verdict.</b></p>
+    </div>
+    <div class="badges"><span class="badge p">Claude Code skill</span><span class="badge b">statusline · ~130 ms</span><span class="badge g">76 tests · MIT</span></div>
+  </div>
+
+  <div class="term">
+    <div class="bar"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="dot" style="background:#28c840"></span><span class="t">statusline.sh · every line omitted when it has nothing real to say</span></div>
+<pre><span class="sky b">Fable 5.1</span> <span class="mute">(claude-fable-5-1)</span> <span class="mute">·</span> <span class="mag b">👤 you@example.com [MAX 20x] (personal)</span> <span class="mute">·</span> <span class="mute">‹statusline v2›</span>
+<span class="gr">✍️  40%</span> <span class="mute">(80k/200k)</span> <span class="mute">·</span> <span class="gr">⚡ 91% warm</span> <span class="mute">(ttl 45m)</span> <span class="mute">·</span> <span class="gold">$1.23</span> <span class="mute">·</span> <span class="gr">frugal $144.88 saved</span> <span class="mute">·</span> <span class="yel">cache miss 14m ago (2×, ~310k rewritten)</span>
+<span class="gr">my-project</span> <span class="mute">(</span><span class="gr">feature/thing*</span> <span class="gr">⇡2</span><span class="mute">)</span> <span class="mute">·</span> <span class="gr">+10</span> <span class="red">−2</span> <span class="mute">·</span> <span class="red">xhigh</span> <span class="mute">·</span> <span class="mute">⏱ 1h13m</span>
+<span class="lg">claude 5h</span> <span class="gr">●●●●●●○○○○ 56%</span> <span class="red">⇡12</span>  <span class="mute">↻ 6:50pm (23m)</span>
+<span class="lg">claude 7d</span> <span class="gr">●○○○○○○○○○ 11%</span> <span class="gr">⇣49</span>  <span class="mute">↻ Thu Sep 3, 8:00am (1d13h)</span>
+<span class="lg">codex 5h </span> <span class="gr">●●●●●●●○○○ 68%</span>      <span class="mute">↻ 8:32pm (2h07m)</span>
+<span class="lg">← 2 agents</span> <span class="mute">·</span> <span class="lg">PR #4242</span> <span class="mute">·</span> <span class="gr">approved</span> <span class="mute">·</span> <span class="lg">⇄ today</span>  <span class="sky">claude <b>7</b></span> <span class="mute">(1.3B in · 5.1M out)</span> <span class="mute">·</span> <span class="cy">codex <b>22</b></span> <span class="mute">(28M in · 205k out)</span> <span class="mute">·</span> <span class="pu">agy <b>57</b></span> <span class="mute">runs</span>
+<span class="mute">mcp</span> <span class="lg">7 cfg</span> <span class="mute">·</span> <span class="gr">3 live</span></pre>
+  </div>
+
+  <div class="row">
+    <div class="stat"><div class="n" style="color:var(--red)">20×</div><div class="l">A cache <b>write</b> costs 20 times a cache <b>read</b>. Rebuilds, not tokens, are the bill.</div></div>
+    <div class="stat"><div class="n" style="color:var(--purple)">7.4M</div><div class="l">tokens per subagent, measured. Say the fan-out number out loud before you spend it.</div></div>
+    <div class="stat"><div class="n" style="color:var(--green)">99.0%</div><div class="l">cache hit rate over 5,832 turns when you pick one model and stay on it.</div></div>
+    <div class="ladder"><div class="h">Burn ladder · the worse of your two windows picks the rung</div>
+      <div class="rungs">
+        <div class="rung r0">L0 SIP<small>full rules</small></div>
+        <div class="rung r1">L1 LEAN<small>mid tier only</small></div>
+        <div class="rung r2">L2 DRAIN<small>external lanes</small></div>
+        <div class="rung r3">L3 EMBER<small>checkpoint, go dark</small></div>
+      </div>
+    </div>
+  </div>
+  <div class="bottom"><div class="law">Judgment stays on the top model. Everything cheap to specify goes <b>down</b> a tier, or to a second vendor's budget.</div><div class="foot">github.com/dvaladares/token-sipping-mode<span>MIT</span></div></div>
+</div>
+</body></html>

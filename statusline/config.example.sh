@@ -15,7 +15,7 @@
 
 # Where quota-<seat>.json (and the legacy quota.json) are written for other tools to
 # read. Default: $SL_CACHE_DIR (~/.cache/claude-statusline).
-# SL_QUOTA_DIR="$HOME/.claude/torch-agy"
+# SL_QUOTA_DIR="$HOME/.claude/shared-gauges"
 
 # Section toggles (1 = show when data exists, 0 = never)
 # SL_SHOW_CLAUDE_QUOTA=1     claude 5h / 7d / spend bars
@@ -33,5 +33,5 @@
 
 # Paths
 # SL_CACHE_DIR="$HOME/.cache/claude-statusline"
-# SL_LEGACY_LIB="$HOME/.claude/limit-sentinel"     second place to look for lib helpers
+# SL_LEGACY_LIB="$HOME/.claude/gauges"     second place to look for lib helpers
 # SL_FRUGAL="$HOME/.claude/frugal/bin/statusline.py"  optional savings badge; omitted if absent

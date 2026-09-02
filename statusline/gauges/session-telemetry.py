@@ -3,7 +3,7 @@
 
 Usage: session-telemetry.py <transcript_path> [now_epoch]
 
-WHY (2026-09-01, Daniel). The old cache-rebuild field globbed EVERY transcript in both
+WHY (2026-09-01, the operator). The old cache-rebuild field globbed EVERY transcript in both
 config homes and wrote ONE shared cache file. Every open session therefore showed the same
 machine-wide "cache rebuilt 25m ago", whichever session had actually rebuilt. Prompt cache
 is per conversation. The gauge must be too. This reads one transcript, the session's own,
