@@ -13,6 +13,7 @@
 # CLAUDE_CONFIG_DIR selects the seat, exactly as the harness does.
 HERE=$(cd "$(dirname "$0")" && pwd)
 SL="$HERE/../statusline.sh"
+export SL_DRY=1              # never write the seat's quota/last-input files from a test render
 FX="${1:-full}"; shift 2>/dev/null
 PLAIN=0; TIME=0
 for a in "$@"; do case "$a" in --plain) PLAIN=1 ;; --time) TIME=1 ;; esac; done

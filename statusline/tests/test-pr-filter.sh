@@ -21,6 +21,7 @@ cat > "$T/home/gh-pr-status-cache.json" <<'JSON'
 }
 JSON
 export CLAUDE_STATUSLINE_CONFIG="$HERE/config.test.sh"
+export SL_DRY=1
 
 render_with_pr() {
   cat <<JSON | CLAUDE_CONFIG_DIR="$T/home" bash "$SL" 2>/dev/null | perl -pe 's/\e\[[0-9;]*m//g; s/\e\]8;;.*?\e\\//g'

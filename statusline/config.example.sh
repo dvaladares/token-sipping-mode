@@ -31,6 +31,8 @@
 # SL_TTL_WARN_S=900          cache TTL seconds left that turns orange
 # SL_NARROW_COLS=100         terminal width below which dim extras are dropped
 
+# SL_DRY=1                   render only: never write quota-<seat>.json or last-input (tests set it)
+
 # Paths
 # SL_CACHE_DIR="$HOME/.cache/claude-statusline"
 # SL_LEGACY_LIB=""                        optional second directory to look for gauges helpers
