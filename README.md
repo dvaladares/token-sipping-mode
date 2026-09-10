@@ -9,7 +9,7 @@
   <img alt="Claude Code 2.1.251+" src="https://img.shields.io/badge/Claude_Code-2.1.251%2B-7c3aed?logo=anthropic&logoColor=white">
   <img alt="bash 3.2+" src="https://img.shields.io/badge/bash-3.2%2B-4EAA25?logo=gnubash&logoColor=white">
   <img alt="render ~130 ms" src="https://img.shields.io/badge/render-~130_ms-0ea5e9">
-  <img alt="tests 76 passing" src="https://img.shields.io/badge/tests-76_passing-10b981">
+  <img alt="tests 84 passing" src="https://img.shields.io/badge/tests-84_passing-10b981">
   <img alt="MIT" src="https://img.shields.io/badge/license-MIT-f59e0b">
 </p>
 
@@ -47,12 +47,12 @@ for once, in tokens, before it was written down.
 
 ```
 Fable 5.1 (claude-fable-5-1) · 👤 you@example.com [MAX 20x] (M2) · ‹statusline v2›
-✍️  40% (80k/200k) · ⚡ 91% warm (ttl 45m) · $1.23 · frugal $144.88/$8,220.96 saved · cache miss 14m ago (2×, ~310k rewritten)
+✍️  40% (80k/200k) · ⚡ 91% hit (ttl 45m) · $1.23 · frugal $144.88/$8,220.96 saved · cache miss 14m ago (2×, ~310k rewritten: tools_changed)
 my-project (feature/thing* ⇡2) · +10 −2 · xhigh · ⏱ 1h13m
 claude 5h ●●●●●●○○○○ 56% ⇡12  ↻ 6:50pm (23m)
 claude 7d ●○○○○○○○○○ 11% ⇣49  ↻ Thu Sep 3, 8:00am (1d13h)
 codex 5h  ●●●●●●●○○○ 68%      ↻ 8:32pm (2h07m)
-← 2 agents · PR #4242 · approved · ⇄ today  claude 7 · codex 19 (26.7M tok) · agy 35 runs
+PR #4242 · approved · ⇄ today  claude 7 (1.3B in · 5.1M out) · codex 19 (28M in · 205k out) · agy 35 runs
 mcp 7 cfg · 3 live
 ```
 
@@ -68,7 +68,7 @@ top-model prices and what it actually cost at the tier it ran on.
 | [`statusline/statusline.sh`](statusline/statusline.sh) | A session-scoped statusline for Claude Code. Nine lines, each omitted when it has nothing real to say. [Field guide](statusline/README.md) |
 | [`statusline/gauges/`](statusline/gauges/README.md) | The readers behind it: per-session prompt-cache telemetry, two-window codex quota, MCP health, and `lanes.sh`, the one-call burn probe that prints the ladder rung |
 | [`statusline/frugal/`](statusline/frugal/) | The frugal meter: a `SubagentStop` hook that logs every delegate run, and the script that turns the log into dollars saved |
-| [`statusline/tests/`](statusline/tests/) | 76 render cases and a suite per gauge. Every gauge is proven to fire **and** to stay quiet |
+| [`statusline/tests/`](statusline/tests/) | 84 render cases and a suite per gauge. Every gauge is proven to fire **and** to stay quiet |
 
 ## ⚖️ The one law
 
@@ -213,7 +213,7 @@ What it shows, line by line:
 | place | dir, branch, ⇡ ahead ⇣ behind, owner/repo, +lines −lines, worktree, effort, session duration | Where you are and what you have changed |
 | claude 5h / 7d | dot bar, %, **pace** (used minus time elapsed), reset countdown | The ladder's inputs, glanceable |
 | codex 5h / 7d | codex's own telemetry, both windows | The parser that found only one window once read 30 % while the truth was 100 % |
-| lanes | subagents, PR with state (clickable), runs today per vendor | Is the fan-out you meant to run actually running? |
+| lanes | PR with state (clickable), runs and tokens today per vendor | Is the fan-out you meant to run actually running? |
 | mcp | configured, served a call, **DOWN** | A dead server is silent and costs a rebuild per restart |
 
 Full field table, config knobs and the harness quirks it handles:

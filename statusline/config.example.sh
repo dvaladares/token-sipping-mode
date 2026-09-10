@@ -33,5 +33,5 @@
 
 # Paths
 # SL_CACHE_DIR="$HOME/.cache/claude-statusline"
-# SL_LEGACY_LIB="$HOME/.claude/gauges"     second place to look for lib helpers
+# SL_LEGACY_LIB=""                        optional second directory to look for gauges helpers
 # SL_FRUGAL="$HOME/.claude/frugal/bin/statusline.py"  optional savings badge; omitted if absent

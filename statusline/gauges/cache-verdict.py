@@ -37,7 +37,8 @@ def load(hours):
     files = []
     # Point this at your own config homes, space separated, if you run more than one:
     #   CLAUDE_TRANSCRIPT_DIRS="~/.claude ~/.claude-work"
-    homes = os.environ.get("CLAUDE_TRANSCRIPT_DIRS", "~/.claude").split()
+    homes = (os.environ.get("CLAUDE_TRANSCRIPT_DIRS")
+             or os.environ.get("CLAUDE_CONFIG_DIR") or "~/.claude").split()
     for p in [h.rstrip("/") + "/projects/*/*.jsonl" for h in homes]:
         files.extend(glob.glob(os.path.expanduser(p)))
     files = [f for f in files

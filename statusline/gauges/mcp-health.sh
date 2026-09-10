@@ -68,13 +68,19 @@ if tpath and os.path.exists(tpath):
                 m = re.search(r'"attributionMcpServer"\s*:\s*"([^"]+)"', line)
                 if m:
                     live.add(m.group(1))
-            # Disconnect and reconnect notices arrive as plain text reminders.
-            if "MCP server disconnected" in line or "no longer available" in line:
-                for m in re.finditer(r'mcp__([A-Za-z0-9_.-]+?)__', line):
-                    down.add(m.group(1))
-            if "are available again" in line or "MCP server reconnected" in line:
-                for m in re.finditer(r'mcp__([A-Za-z0-9_.-]+?)__', line):
-                    down.discard(m.group(1))
+                    down.discard(m.group(1))   # lines are chronological: a call served after the notice means it is back
+            # Disconnect and reconnect notices arrive as plain text reminders:
+            #   "51 deferred tools are no longer available (MCP server disconnected): mcp__x__*, mcp__y__*"
+            #   "The following deferred tools are available again (MCP server reconnected): mcp__x__tool"
+            # Only names listed AFTER that exact phrase count. Prose that quotes the phrase
+            # next to some mcp__NAME__ token must not: a review discussing this very check
+            # once raised "DOWN NAME" for real.
+            m = re.search(r'deferred tools are no longer available \(MCP server disconnected\):\s*([^"\\]*)', line)
+            if m:
+                down.update(re.findall(r'mcp__([A-Za-z0-9_.-]+?)__', m.group(1)))
+            m = re.search(r'deferred tools are available again \(MCP server reconnected\):\s*([^"\\]*)', line)
+            if m:
+                down.difference_update(re.findall(r'mcp__([A-Za-z0-9_.-]+?)__', m.group(1)))
     except Exception:
         pass
 

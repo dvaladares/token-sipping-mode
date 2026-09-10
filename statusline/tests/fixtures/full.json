@@ -42,6 +42,8 @@
     "cache_write_tokens": 352000,
     "miss_recache_tokens": 310200,
     "last_miss_at": __LAST_MISS__,
+    "last_miss_cause": {"causes": ["tools_changed"]},
+    "miss_causes": {"tools_changed": 1, "effort_changed": 1},
     "recache_tokens_if_cold": 45000
   },
   "rate_limits": {
@@ -55,6 +57,5 @@
     "organizationRateLimitTier": "default_claude_max_20x",
     "userRateLimitTier": ""
   },
-  "subagents": [{"id": "a"}, {"id": "b"}],
   "pr": {"number": 4242, "url": "https://github.com/example-org/example-repo/pull/4242", "review_state": "approved"}
 }

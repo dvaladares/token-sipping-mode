@@ -22,7 +22,7 @@ Two parsing traps this avoids, both real:
 
 Output: one line, space separated, `-` for anything genuinely unknown.
 
-    <5h_pct> <5h_resets_at> <7d_pct> <7d_resets_at>
+    <5h_pct> <5h_resets_at> <7d_pct> <7d_resets_at> <age_s>
 
 Never invents a value. No data means `-`, and the caller omits the field.
 """
