@@ -7,13 +7,13 @@ machine. Part of the [token-sipping-mode](..) kit.
 
 ```
 Fable 5.1 (claude-fable-5-1) · 👤 you@example.com [MAX 20x] (M2) · ‹statusline v2›
-✍️  40% (80k/200k) · ⚡ 91% warm (ttl 45m) · $1.23 · cache miss 14m ago (2×, ~310k rewritten)
+✍️  40% (80k/200k) · ⚡ 91% hit (ttl 45m) · $1.23 · cache miss 14m ago (2×, ~310k rewritten: tools_changed)
 claude-statusline (main ⇡2) · +10 −2 · xhigh · ⏱ 1h13m
 claude 5h ●●●●●●○○○○ 56% ⇡12  ↻ 6:50pm (23m)
 claude 7d ●○○○○○○○○○ 11% ⇣49  ↻ Thu Sep 3, 8:00am (1d13h)
 codex 5h  ●●●●●●●○○○ 68% ⇡11  ↻ 8:32pm (2h07m)
 codex 7d  ●●●●○○○○○○ 43%      ↻ Mon Sep 7, 2:03pm (5d19h)
-← 2 agents · PR #4242 · approved · ⇄ today  claude 7 · codex 19 (26.7M tok) · agy 35 runs
+PR #4242 · approved · ⇄ today  claude 7 (1.3B in · 5.1M out) · codex 19 (28M in · 205k out) · agy 35 runs
 mcp 7 cfg · 3 live
 ```
 
@@ -80,7 +80,7 @@ Everything else is a toggle or a threshold: `SL_SHOW_CODEX`, `SL_SHOW_DELEGATION
 | Field | Source |
 | --- | --- |
 | model, slug | `model.display_name`, `model.id` |
-| account, plan badge | `oauthAccount.*` in the input, else this home's `.claude.json` |
+| account, plan badge | this home's `.claude.json` (the harness sends no account; an `oauthAccount` object in the input is honoured if one ever arrives) |
 | seat tag | `CLAUDE_CONFIG_DIR` through `seat_label()` |
 | 🤖 agent, ‹session name› | `agent.name`, `session_name` |
 | ✍️ context % and tokens | `context_window.used_percentage`, `total_input_tokens`, `context_window_size` |
@@ -99,7 +99,6 @@ Everything else is a toggle or a threshold: `SL_SHOW_CODEX`, `SL_SHOW_DELEGATION
 | claude 5h / 7d / spend | `rate_limits.five_hour`, `seven_day`, `spend_limit` |
 | ⇡ / ⇣ pace on a bar | quota used minus the share of the window already elapsed; quiet within 10 points |
 | codex 5h / 7d | codex's own `rate_limits` in `~/.codex/sessions/*/rollout*.jsonl`, both windows (`gauges/codex-quota.py`) |
-| ← N agents | `subagents` (only when it is a real array) |
 | PR #n · state | `pr.number`, `pr.url` (clickable), `pr.review_state`, `pr.kind` (MR for GitLab); merged/closed PRs filtered via `gh-pr-status-cache.json` |
 | ⇄ today | runs and `(in · out)` tokens per lane from each lane's own records (`gauges/today-usage.py`, detached, 60 s cache): Claude transcripts touched today, codex rollouts' `total_token_usage`, agy conversation dirs. agy keeps no token telemetry, so it shows runs only |
 | mcp cfg / live / DOWN | `.claude.json` servers; tool attributions and disconnect notices in this transcript (`gauges/mcp-health.sh`) |
@@ -135,12 +134,13 @@ send?" is one `jq . ` away. Render it back with `tests/render.sh <that file>`.
 
 ```
 L1  identity   model (slug) · 👤 email [PLAN] (SEAT) · 🤖 agent · ‹session name›
-L2  budget     ✍️ ctx% (used/size) · ⚡ warm% (ttl) · $cost · frugal · cache MISS · ⧉ compactions
+L2  budget     ✍️ ctx% (used/size) · ⚡ hit% (ttl) · $cost · frugal · cache MISS (cause) · ⧉ compactions
 L3  place      dir (branch* ⇡ ⇣) · owner/repo · +a −r · 🌳 worktree · effort · fast · ⏱ · [VIM]
 L4  claude 5h  ●●●●●●○○○○ 56% ⇡12  ↻ reset (countdown)
 L5  claude 7d  same; spend limit line for gateway accounts
-L6  codex 5h / 7d
-L8  lanes      ← N agents · PR #n · ⇄ today claude N · codex N (tok) · agy N runs
+L6  codex 5h   codex's own quota telemetry (omitted once its window has reset; age shown when old)
+L7  codex 7d   same
+L8  lanes      PR #n · ⇄ today claude N (in · out) · codex N (in · out) · agy N runs
 L9  mcp        mcp N cfg · N live · DOWN <name>
 ```
 

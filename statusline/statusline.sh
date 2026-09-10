@@ -7,13 +7,13 @@
 #
 # LAYOUT (each line is printed only when it has real data):
 #   L1  identity   model (slug) · 👤 email [PLAN] (SEAT) · 🤖 agent · ‹session name›
-#   L2  budget     ✍️ ctx% (used/size) · ⚡ warm% (ttl) · $cost · frugal · cache MISS · ⧉ compactions
+#   L2  budget     ✍️ ctx% (used/size) · ⚡ hit% (ttl) · $cost · frugal · cache MISS (cause) · ⧉ compactions
 #   L3  place      dir (branch* ⇡ ⇣) · owner/repo · +added −removed · 🌳 worktree · effort · fast · ⏱ session · [VIM]
 #   L4  claude 5h  dot bar · pct · pace · ↻ reset (countdown)
 #   L5  claude 7d  same          (L5b: spend limit, gateway accounts only)
 #   L6  codex 5h   codex's OWN quota telemetry, from its rollout files (optional)
 #   L7  codex 7d   same
-#   L8  lanes      ← N agents · PR #n · ⇄ today claude N · codex N (tok) · agy N runs
+#   L8  lanes      PR #n · ⇄ today claude N (in · out) · codex N (in · out) · agy N runs
 #   L9  mcp        mcp N cfg · N live · DOWN <name>
 #
 # RULES THIS FILE LIVES BY
@@ -51,6 +51,12 @@
 #               pure helpers stopped forking subshells
 #   2026-09-01  `timeout` does not exist on stock macOS, so guard() silently ran unbounded;
 #               perl's Time::HiRes alarm is the portable fallback
+#   2026-09-10  the dead-PR filter matched on the NUMBER, so an open #1 in any other repo
+#               kept a merged #1 on screen; cache keys are URLs, match the URL. The lanes
+#               refresh had no lock: every render during a refresh started another. A
+#               render the harness cancelled leaked its run-<pid> files for good. codex rows
+#               kept a percent for a window that had already reset. The harness now names
+#               the CAUSE of a cache miss (model_changed, effort_changed...); it is printed.
 
 # ==============================================================================
 # 0. INPUT, LOCATION, CONFIG
@@ -74,7 +80,7 @@ esac
 # Defaults. Override any of these in the config file, which is plain bash.
 SL_CACHE_DIR="${SL_CACHE_DIR:-$HOME/.cache/claude-statusline}"
 SL_QUOTA_DIR="${SL_QUOTA_DIR:-}"                 # empty = $SL_CACHE_DIR; set to share with other readers
-SL_LEGACY_LIB="${SL_LEGACY_LIB:-$HOME/.claude/gauges}"   # a second place to look for helpers, after gauges/
+SL_LEGACY_LIB="${SL_LEGACY_LIB:-}"               # optional second place to look for helpers, after gauges/
 SL_FRUGAL="${SL_FRUGAL:-$HOME/.claude/frugal/bin/statusline.py}"   # the installed hook copy; the repo copy is the fallback
 [ -f "$SL_FRUGAL" ] || SL_FRUGAL="$SL_HOME/frugal/statusline.py"
 SL_SHOW_CLAUDE_QUOTA="${SL_SHOW_CLAUDE_QUOTA:-1}"
@@ -127,45 +133,37 @@ fi
 US=$'\x1f'
 IFS="$US" read -r \
   model_id model_name \
-  ctx_pct ctx_in ctx_out ctx_size exceeds200k \
-  tpath cwd_in session_id session_name cc_version out_style \
-  effort_level fast_mode agent_name vim_mode worktree_name \
+  ctx_pct ctx_in ctx_size exceeds200k \
+  tpath cwd_in session_id session_name cc_version \
+  effort_level fast_mode agent_name agent_type vim_mode worktree_name \
   repo_owner repo_name \
-  cost_usd dur_ms api_ms lines_add lines_del \
+  cost_usd dur_ms lines_add lines_del \
   in_email in_org_type in_org_name in_org_tier in_user_tier \
   five_raw five_reset week_raw week_reset spend_raw spend_reset \
-  pc_present pc_warm pc_observed pc_ttl pc_expires pc_requests pc_misses pc_expected pc_hit pc_write pc_miss_tok pc_last_miss pc_recache \
-  sub_type sub_n pr_num pr_url pr_review pr_kind \
+  pc_present pc_warm pc_observed pc_expires pc_misses pc_hit pc_miss_tok pc_last_miss pc_recache pc_cause \
+  pr_num pr_url pr_review pr_kind \
   < <(printf '%s' "$input" | jq -r '
     def s(x): (x // "") | tostring;
     [ s(.model.id), s(.model.display_name),
-      s(.context_window.used_percentage // .context.used_percentage // .context_window_used_percentage),
-      s(.context_window.total_input_tokens // .context.input_tokens),
-      s(.context_window.total_output_tokens),
+      s(.context_window.used_percentage), s(.context_window.total_input_tokens),
       s(.context_window.context_window_size),
       s(.exceeds_200k_tokens // false),
       s(.transcript_path), s(.cwd // .workspace.current_dir // .workspace.project_dir),
-      s(.session_id), s(.session_name), s(.version), s(.output_style.name),
-      s(.effort.level), s(.fast_mode // false), s(.agent.name), s(.vim.mode), s(.worktree.name),
+      s(.session_id), s(.session_name), s(.version),
+      s(.effort.level), s(.fast_mode // false), s(.agent.name), s(.agent_type), s(.vim.mode), s(.worktree.name),
       s(.workspace.repo.owner), s(.workspace.repo.name),
-      s(.cost.total_cost_usd), s(.cost.total_duration_ms), s(.cost.total_api_duration_ms),
+      s(.cost.total_cost_usd), s(.cost.total_duration_ms),
       s(.cost.total_lines_added), s(.cost.total_lines_removed),
-      s(.oauthAccount.emailAddress // .account.email // .email // .user_email),
-      s(.oauthAccount.organizationType // .account.type),
-      s(.oauthAccount.organizationName // .account.organization),
-      s(.oauthAccount.organizationRateLimitTier // .account.tier),
-      s(.oauthAccount.userRateLimitTier),
-      s(.rate_limits.five_hour.used_percentage // .rate_limits.five_hour.utilization // .quota.current.used_percentage // .quota.five_hour.used_percentage),
-      s(.rate_limits.five_hour.resets_at // .quota.current.resets_at // .quota.five_hour.resets_at),
-      s(.rate_limits.seven_day.used_percentage // .rate_limits.seven_day.utilization // .quota.weekly.used_percentage // .quota.seven_day.used_percentage),
-      s(.rate_limits.seven_day.resets_at // .quota.weekly.resets_at // .quota.seven_day.resets_at),
+      s(.oauthAccount.emailAddress), s(.oauthAccount.organizationType), s(.oauthAccount.organizationName),
+      s(.oauthAccount.organizationRateLimitTier), s(.oauthAccount.userRateLimitTier),
+      s(.rate_limits.five_hour.used_percentage), s(.rate_limits.five_hour.resets_at),
+      s(.rate_limits.seven_day.used_percentage), s(.rate_limits.seven_day.resets_at),
       s(.rate_limits.spend_limit.used_percentage), s(.rate_limits.spend_limit.resets_at),
       (if (.prompt_cache | type) == "object" then "1" else "" end),
-      s(.prompt_cache.warm // false), s(.prompt_cache.caching_observed // false), s(.prompt_cache.ttl),
-      s(.prompt_cache.expires_at), s(.prompt_cache.requests), s(.prompt_cache.misses), s(.prompt_cache.expected_rebuilds),
-      s(.prompt_cache.hit_ratio), s(.prompt_cache.cache_write_tokens), s(.prompt_cache.miss_recache_tokens),
-      s(.prompt_cache.last_miss_at), s(.prompt_cache.recache_tokens_if_cold),
-      (.subagents | type), s(.subagents | if type == "array" then length else "" end),
+      s(.prompt_cache.warm // false), s(.prompt_cache.caching_observed // false),
+      s(.prompt_cache.expires_at), s(.prompt_cache.misses), s(.prompt_cache.hit_ratio),
+      s(.prompt_cache.miss_recache_tokens), s(.prompt_cache.last_miss_at), s(.prompt_cache.recache_tokens_if_cold),
+      (.prompt_cache.last_miss_cause | if type == "object" then ((.causes // []) | join("+")) elif type == "string" then . else "" end),
       s(.pr.number), s(.pr.url), s(.pr.review_state), s(.pr.kind)
     ] | join([31] | implode)' 2>/dev/null)
 
@@ -216,7 +214,7 @@ to_epoch_() {
   esac
 }
 
-int_() { R="${1%%.*}"; case "$R" in ''|*[!0-9-]*) R="" ;; esac; }
+int_() { R="${1%%.*}"; case "$R" in ''|-|*[!0-9-]*|?*-*) R="" ;; esac; }   # optional leading minus, then digits
 hk_()  { # 123456 -> 123k, 1234567 -> 1.2M, 1333735347 -> 1.3B
   int_ "$1"; local n="$R"; R=""
   [ -z "$n" ] && return
@@ -271,7 +269,7 @@ ratio_pct_() { # "0.912" -> 91, "1" -> 100, "0.7" -> 70 ; empty when not a numbe
 }
 # Helper lookup: repo gauges/ first, then the legacy directory. R empty if absent, and
 # every caller treats "absent helper" as "omit the field".
-lib_() { R=""; if [ -e "$SL_LIB/$1" ]; then R="$SL_LIB/$1"; elif [ -e "$SL_LEGACY_LIB/$1" ]; then R="$SL_LEGACY_LIB/$1"; fi; }
+lib_() { R=""; if [ -e "$SL_LIB/$1" ]; then R="$SL_LIB/$1"; elif [ -n "$SL_LEGACY_LIB" ] && [ -e "$SL_LEGACY_LIB/$1" ]; then R="$SL_LEGACY_LIB/$1"; fi; }
 upper() { printf '%s' "$1" | tr '[:lower:]' '[:upper:]'; }   # the few case changes still spawn tr
 lower() { printf '%s' "$1" | tr '[:upper:]' '[:lower:]'; }
 osc8()  { printf '\033]8;;%s\033\\%s\033]8;;\033\\' "$1" "$2"; }   # clickable text (iTerm2, Kitty, WezTerm)
@@ -286,6 +284,15 @@ osc8()  { printf '\033]8;;%s\033\\%s\033]8;;\033\\' "$1" "$2"; }   # clickable t
 mkdir -p "$SL_CACHE_DIR" 2>/dev/null
 _run="$SL_CACHE_DIR/run-$$"
 _pids=""
+# A render the harness cancelled mid-way leaves its run-<pid>.* files behind for good
+# (found twice in nine days). Reap any whose process is gone. kill -0 is a builtin.
+for _f in "$SL_CACHE_DIR"/run-*; do
+  [ -e "$_f" ] || break
+  _p="${_f##*/run-}"; _p="${_p%%.*}"
+  case "$_p" in ''|*[!0-9]*) continue ;; esac
+  [ "$_p" = "$$" ] && continue
+  kill -0 "$_p" 2>/dev/null || rm -f "$_f" 2>/dev/null
+done
 lib_ session-telemetry.py; _tel="$R"
 if [ -n "$_tel" ] && [ -n "$tpath" ] && [ -f "$tpath" ]; then
   guard 0.5 python3 "$_tel" "$tpath" "$now_epoch" > "$_run.tel" 2>/dev/null & _pids="$_pids $!"
@@ -301,6 +308,7 @@ if [ -d "$cwd" ]; then
   { if git -C "$cwd" rev-parse --git-dir >/dev/null 2>&1; then
       printf 'branch=%s\n' "$(git -C "$cwd" branch --show-current 2>/dev/null)"
       printf 'ab=%s\n' "$(git -C "$cwd" rev-list --left-right --count '@{u}...HEAD' 2>/dev/null)"
+      [ -z "$repo_name" ] && printf 'origin=%s\n' "$(git -C "$cwd" remote get-url origin 2>/dev/null)"
       if [ -n "$(guard 0.3 git -C "$cwd" status --porcelain 2>/dev/null | head -1)" ]; then printf 'dirty=*\n'; fi
     fi; } > "$_run.git" 2>/dev/null & _pids="$_pids $!"
 fi
@@ -339,8 +347,8 @@ elif [ -n "$model_name" ]; then
   model_field="${BOLD}${C_SKY_BLUE}${model_name}${RESET}"
 fi
 
-# Account: the input JSON first; else this seat's own account record on disk. Never
-# another seat's.
+# Account: an oauthAccount object in the input if one is ever sent (today only the test
+# fixtures carry one); else this seat's own account record on disk. Never another seat's.
 #
 # WHERE THE RECORD LIVES. With CLAUDE_CONFIG_DIR set, Claude Code keeps it in
 # <dir>/.claude.json. For the DEFAULT home it is ~/.claude.json (in $HOME), and a stale
@@ -397,7 +405,12 @@ else
   account_field="${BOLD}${C_YELLOW}👤 seat ${seat_tag}${RESET} ${C_YELLOW}(no account in ${_cfgdir##*/})${RESET}"
 fi
 
-agent_field=""; [ -n "$agent_name" ] && agent_field="${C_PURPLE}🤖 ${agent_name}${RESET}"
+# agent.name is "claude" on every ordinary session (it equals agent_type). Only a named
+# --agent earns the glyph.
+agent_field=""
+if [ -n "$agent_name" ] && [ "$agent_name" != "claude" ] && [ "$agent_name" != "$agent_type" ]; then
+  agent_field="${C_PURPLE}🤖 ${agent_name}${RESET}"
+fi
 name_field="";  [ -n "$session_name" ] && [ "$SL_NARROW" = "0" ] && name_field="${C_MUTED_GRAY}‹${session_name}›${RESET}"
 version_field=""; [ "$SL_SHOW_VERSION" = "1" ] && [ -n "$cc_version" ] && version_field="${C_MUTED_GRAY}v${cc_version}${RESET}"
 
@@ -417,7 +430,12 @@ if [ -n "$ctx_pct" ]; then
     hk_ "$ctx_in"; _a="$R"; hk_ "$ctx_size"
     ctx_field="${ctx_field} ${C_MUTED_GRAY}(${_a}/${R})${RESET}"
   fi
-  [ "$exceeds200k" = "true" ] && ctx_field="${ctx_field} ${BOLD}${C_RED}>200k${RESET}"
+  # exceeds_200k_tokens is a fixed threshold whatever the window size. On a 200k model it
+  # is the cliff; on a 1M model it is the long-context price tier: orange, not red.
+  if [ "$exceeds200k" = "true" ]; then
+    if [ -n "$ctx_size" ] && [ "$ctx_size" -gt 200000 ]; then ctx_field="${ctx_field} ${C_ORANGE}>200k${RESET}"
+    else ctx_field="${ctx_field} ${BOLD}${C_RED}>200k${RESET}"; fi
+  fi
 else
   ctx_field="${C_MUTED_GRAY}✍️  --${RESET}"     # explicit no-data marker, not a number
 fi
@@ -443,12 +461,13 @@ if [ -s "$_run.tel" ]; then
 fi
 frugal_txt=""; [ -s "$_run.frugal" ] && IFS= read -r frugal_txt < "$_run.frugal"
 _mcp="";       [ -s "$_run.mcp" ]    && IFS= read -r _mcp < "$_run.mcp"
-branch=""; dirty=""; behind=""; ahead=""
+branch=""; dirty=""; behind=""; ahead=""; origin_url=""
 if [ -s "$_run.git" ]; then
   while IFS= read -r l; do
     case "$l" in
       branch=*) branch="${l#branch=}" ;;
       dirty=*)  dirty="*" ;;
+      origin=*) origin_url="${l#origin=}" ;;
       ab=*)     l="${l#ab=}"; behind="${l%%[!0-9]*}"; ahead="${l##*[!0-9]}" ;;   # "behind<TAB>ahead"
     esac
   done < "$_run.git"
@@ -457,16 +476,23 @@ rm -f "$_run.tel" "$_run.frugal" "$_run.mcp" "$_run.git" 2>/dev/null
 
 # Prompt cache. PRIMARY source: Claude Code's own prompt_cache object (v2.1.251+), which
 # is computed from the API's cache token counts for THIS session's main conversation.
+# Two different facts: `warm` is whether the prefix is still inside its TTL; `hit_ratio`
+# is cache reads over ALL input this session (reads + writes + uncached). The percent is
+# labelled "hit", the TTL countdown is the warm state, and COLD is spelled out.
 # FALLBACK when absent (older Claude Code, or before the first response): the same
-# numbers derived from this session's transcript by lib/session-telemetry.py.
+# numbers derived from this session's transcript by gauges/session-telemetry.py.
 warm_field=""; miss_field=""
 if [ "$pc_present" = "1" ]; then
+  int_ "$pc_misses"; pc_misses="$R"; int_ "$pc_last_miss"; pc_last_miss="$R"
   if [ "$pc_observed" = "true" ]; then
     ratio_pct_ "$pc_hit"; hit="$R"
     if [ "$pc_warm" = "true" ]; then
       if [ -n "$hit" ]; then
-        if   [ "$hit" -ge 90 ]; then wc_="$C_SOFT_GREEN"; elif [ "$hit" -ge 70 ]; then wc_="$C_ORANGE"; else wc_="$C_RED"; fi
-        warm_field="${wc_}⚡ ${hit}% warm${RESET}"
+        # hit_ratio counts the session's first write as a non-hit, so a young session sits
+        # near 80% with nothing wrong. Misses decide the colour first: none is green.
+        if   [ "${pc_misses:-0}" -eq 0 ] || [ "$hit" -ge 90 ]; then wc_="$C_SOFT_GREEN"
+        elif [ "$hit" -ge 70 ]; then wc_="$C_ORANGE"; else wc_="$C_RED"; fi
+        warm_field="${wc_}⚡ ${hit}% hit${RESET}"
       else
         warm_field="${C_SOFT_GREEN}⚡ warm${RESET}"
       fi
@@ -485,12 +511,14 @@ if [ "$pc_present" = "1" ]; then
     fi
   fi
   # A miss re-processes content the cache already held: 20x the price of a hit. Loud
-  # for 10 minutes, dim for 3 hours, then gone.
-  int_ "$pc_misses"; pc_misses="$R"; int_ "$pc_last_miss"; pc_last_miss="$R"
+  # for 10 minutes, dim for 3 hours, then gone. The harness names the cause (seen:
+  # model_changed, effort_changed, betas_changed, messages_rewritten); print it, so the
+  # eye learns what broke the prefix.
   if [ -n "$pc_misses" ] && [ "$pc_misses" -gt 0 ] && [ -n "$pc_last_miss" ]; then
     age=$(( now_epoch - pc_last_miss ))
     if [ "$age" -le 10800 ]; then
       detail="${pc_misses}×"; hk_ "$pc_miss_tok"; [ -n "$R" ] && detail="${detail}, ~${R} rewritten"
+      [ -n "$pc_cause" ] && [ "$SL_NARROW" = "0" ] && detail="${detail}: ${pc_cause}"
       fmt_dur_ "$age"
       if [ "$age" -le 600 ]; then
         miss_field="${BOLD}${C_RED}cache MISS ${R} ago${RESET} ${C_MUTED_GRAY}(${detail})${RESET}"
@@ -503,7 +531,7 @@ elif [ -n "$cache_pct" ]; then
   if   [ "$cache_pct" -ge 90 ] 2>/dev/null; then wc_="$C_SOFT_GREEN"
   elif [ "$cache_pct" -ge 70 ] 2>/dev/null; then wc_="$C_ORANGE"
   else wc_="$C_RED"; fi
-  warm_field="${wc_}⚡ ${cache_pct}% warm${RESET}"
+  warm_field="${wc_}⚡ ${cache_pct}% hit${RESET}"
   if [ -n "$ttl_left" ]; then
     fmt_dur_ "$ttl_left"
     if   [ "$ttl_left" -le 0 ] 2>/dev/null;                then warm_field="${warm_field} ${BOLD}${C_RED}(ttl expired)${RESET}"
@@ -554,8 +582,15 @@ ab_field=""
 branch_field=""; [ -n "$branch" ] && branch_field=" ${C_MUTED_GRAY}(${RESET}${C_SOFT_GREEN}${branch}${dirty}${RESET}${ab_field}${C_MUTED_GRAY})${RESET}"
 dir_field="${C_SOFT_GREEN}${dir_name}${RESET}${branch_field}"
 
-# owner/repo from the origin remote, parsed by the harness (zero cost). Shown when it
-# adds information, i.e. the directory name is not already the repo name.
+# owner/repo from the origin remote, parsed by the harness (zero cost). The harness
+# derives it from the LAUNCH directory, so a session started in $HOME that cd'ed into a
+# clone gets none; then the git probe's origin URL fills it. Shown when it adds
+# information, i.e. the directory name is not already the repo name.
+if [ -z "$repo_name" ] && [ -n "$origin_url" ]; then
+  _u="${origin_url%.git}"; _u="${_u%/}"
+  repo_name="${_u##*/}"; _u="${_u%/*}"; repo_owner="${_u##*[/:]}"
+  [ "$repo_owner" = "$repo_name" ] && repo_owner=""
+fi
 repo_field=""
 if [ "$SL_SHOW_REPO" = "1" ] && [ -n "$repo_name" ] && [ "$repo_name" != "$dir_name" ]; then
   repo_field="${C_MUTED_GRAY}${repo_owner:+$repo_owner/}${repo_name}${RESET}"
@@ -640,11 +675,8 @@ fi
 # ==============================================================================
 # 8. LANES — subagents, PR, delegation gauge (cached, refreshed in the background)
 # ==============================================================================
-agent_str=""
-if [ "$sub_type" = "array" ] && [ -n "$sub_n" ]; then
-  if [ "$sub_n" -eq 1 ] 2>/dev/null; then agent_str="${C_LIGHT_GRAY}← 1 agent${RESET}"
-  else agent_str="${C_LIGHT_GRAY}← ${sub_n} agents${RESET}"; fi
-fi
+# There is no subagent list in this payload: Claude Code sends it to the separate
+# subagentStatusLine command as `tasks`. An "N agents" field here had no source.
 
 # PR: the harness's .pr.number first; else this seat's branch-matched cache. Then drop
 # MERGED/CLOSED PRs: a statusline shows what is ACTIONABLE. Keys are full URLs, so one
@@ -654,14 +686,23 @@ _prcache="$_cfgdir/gh-pr-status-cache.json"
 if [ -z "$pr_num" ] && [ -f "$_prcache" ] && [ -n "$branch" ]; then
   pr_num=$(guard 0.1 jq -r --arg b "$branch" 'to_entries[] | select(.key | endswith($b) or contains($b)) | .value.number // empty' "$_prcache" | head -1)
 fi
+case "$pr_num" in *[!0-9]*) pr_num="" ;; esac
 if [ -n "$pr_num" ]; then
-  _dead=0; _alive=0
+  # Cache keys are full PR URLs. With the harness's URL in hand, match the key exactly:
+  # matching on the number alone let an open #1 in another repo keep a merged #1 alive.
+  # Without a URL (an old cache hit by branch), fall back to the number. One jq over every
+  # cache file; jq runs the filter once per file.
+  _dead=0; _alive=0; _files=()
   for _c in "$_prcache" "$HOME"/.claude*/gh-pr-status-cache.json; do
-    [ -f "$_c" ] || continue
-    for _s in $(guard 0.1 jq -r --argjson n "$pr_num" 'to_entries[] | select(.value.number == $n) | .value.state // empty' "$_c"); do
+    [ -f "$_c" ] && _files+=("$_c")
+  done
+  if [ "${#_files[@]}" -gt 0 ]; then
+    for _s in $(guard 0.1 jq -r --arg u "$pr_url" --argjson n "$pr_num" \
+        'if $u != "" then (.[$u].state // empty)
+         else (to_entries[] | select(.value.number == $n) | .value.state // empty) end' "${_files[@]}"); do
       case "$_s" in MERGED|CLOSED) _dead=$((_dead + 1)) ;; *) _alive=$((_alive + 1)) ;; esac
     done
-  done
+  fi
   [ "$_dead" -gt 0 ] && [ "$_alive" -eq 0 ] && pr_num=""
 fi
 pr_str=""
@@ -724,16 +765,37 @@ if [ "$SL_SHOW_DELEGATION" = "1" ] || [ "$SL_SHOW_CODEX" = "1" ]; then
   if [ "$deleg_tag" != "$DELEG_TAG" ]; then
     cl_n=""; cl_in=""; cl_out=""; cdx_n=""; cdx_in=""; cdx_out=""; cdx_tok=""; cdx_pct=""; cdx_reset=""; cdx7_pct=""; cdx7_reset=""; cdx_age=""; agy_n=""; agy_in=""; agy_out=""; deleg_ts=0
   fi
-  [ $(( now_epoch - deleg_ts )) -ge "$deleg_ttl" ] && ( _deleg_refresh ) >/dev/null 2>&1 &
+  # One refresh at a time. Without the lock every render during a refresh started another
+  # (a 300 ms cadence against a 400 ms helper). A lock older than a minute belongs to a
+  # refresh the harness killed with its render; reap it.
+  if [ $(( now_epoch - deleg_ts )) -ge "$deleg_ttl" ]; then
+    _lock="$deleg_cache.lock"
+    if [ -d "$_lock" ] && [ -n "$(find "$_lock" -maxdepth 0 -mmin +1 2>/dev/null)" ]; then rmdir "$_lock" 2>/dev/null; fi
+    if mkdir "$_lock" 2>/dev/null; then
+      ( _deleg_refresh; rmdir "$_lock" 2>/dev/null ) >/dev/null 2>&1 &
+    fi
+  fi
   for v in cl_n cl_in cl_out cdx_n cdx_in cdx_out cdx_tok cdx_pct cdx_reset cdx7_pct cdx7_reset cdx_age agy_n agy_in agy_out; do
-    eval "[ \"\$$v\" = \"-\" ] && $v=\"\""
+    [ "${!v}" = "-" ] && printf -v "$v" ''
   done
 fi
 
 line_cdx=""; line_cdx7=""
 if [ "$SL_SHOW_CODEX" = "1" ]; then
+  # codex writes quota telemetry only while it runs, so after an idle night the newest
+  # rollout describes a window that has since reset. A percent for a reset window is a
+  # confident wrong number (the lanes line below says "codex 0" runs today, which
+  # contradicts it): blank it, and quota_line_ omits the row. An OLD reading whose window
+  # is still open is different: usage cannot change without a run from this machine, so
+  # it is exact here and only a lower bound if the same account runs codex elsewhere.
+  # Keep it and say its age.
+  if [ -n "$cdx_reset" ]  && [ "$cdx_reset"  -lt "$now_epoch" ] 2>/dev/null; then cdx_pct="";  fi
+  if [ -n "$cdx7_reset" ] && [ "$cdx7_reset" -lt "$now_epoch" ] 2>/dev/null; then cdx7_pct=""; fi
   quota_line_ "codex 5h" "$cdx_pct" "$cdx_reset" 18000;   line_cdx="$R"
   quota_line_ "codex 7d" "$cdx7_pct" "$cdx7_reset" 604800; line_cdx7="$R"
+  if [ -n "$line_cdx" ] && [ -n "$cdx_age" ] && [ "$cdx_age" -gt 1800 ] 2>/dev/null; then
+    fmt_dur_ "$cdx_age"; line_cdx="${line_cdx} ${C_MUTED_GRAY}· as of ${R} ago${RESET}"
+  fi
 fi
 
 # One shape for every lane: "<lane> <runs> (<in> in · <out> out)". The token pair is
@@ -785,9 +847,9 @@ fi
 join_ "$model_field" "$account_field" "$agent_field" "$name_field" "$version_field"; line1="$R"
 join_ "$ctx_field" "$warm_field" "$cost_field" "$frugal_field" "$miss_field" "$compact_field"; line2="$R"
 join_ "$dir_field" "$repo_field" "$lines_field" "$worktree_field" "$effort_field" "$fast_field" "$dur_field" "$vim_field"; line3="$R"
-join_ "$agent_str" "$pr_str" "$deleg_str"; line8="$R"
+join_ "$pr_str" "$deleg_str"; line_lanes="$R"
 
-for l in "$line1" "$line2" "$line3" "$line_5h" "$line_7d" "$line_spend" "$line_cdx" "$line_cdx7" "$line8" "$line_mcp"; do
+for l in "$line1" "$line2" "$line3" "$line_5h" "$line_7d" "$line_spend" "$line_cdx" "$line_cdx7" "$line_lanes" "$line_mcp"; do
   [ -n "$l" ] && printf '%s\n' "$l"
 done
 # The harness hides a statusline whose command fails; always end successful.

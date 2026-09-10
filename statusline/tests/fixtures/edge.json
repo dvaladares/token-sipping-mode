@@ -16,6 +16,5 @@
     "organizationRateLimitTier": "",
     "userRateLimitTier": ""
   },
-  "subagents": null,
   "vim": {"mode": "normal"}
 }

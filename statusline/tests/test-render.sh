@@ -24,10 +24,10 @@ has "$out" "🤖 reviewer"
 has "$out" "‹statusline v2›"
 has "$out" "40%"
 has "$out" "(80k/200k)"
-has "$out" "⚡ 91% warm"
+has "$out" "⚡ 91% hit"
 has "$out" "(ttl 45m)"
 has "$out" "\$1.23"
-has "$out" "cache miss 14m ago (2×, ~310k rewritten)"
+has "$out" "cache miss 14m ago (2×, ~310k rewritten: tools_changed)"
 has "$out" "example-org/example-repo"
 has "$out" "+10"
 has "$out" "−2"
@@ -36,7 +36,7 @@ has "$out" "xhigh"
 has "$out" "⏱ 1h13m"
 has "$out" "claude 5h"
 has "$out" "claude 7d"
-has "$out" "2 agents"
+hasnot "$out" "agents"
 has "$out" "PR #4242"
 has "$out" "approved"
 hasnot "$out" ">200k"
@@ -55,7 +55,7 @@ hasnot "$out" "⏱"
 hasnot "$out" "🌳"
 hasnot "$out" "warm"
 
-echo "== edge fixture: ISO resets, null subagents, team badge, >200k, vim, zero cost =="
+echo "== edge fixture: ISO resets, team badge, >200k on a 1M window, vim, zero cost =="
 out=$(bash "$R" edge --plain)
 has "$out" "Opus 5 (1M context)"
 has "$out" "92%"
@@ -94,7 +94,7 @@ hasnot "$out" "claude 5h"
 
 echo "== legacy fixture: no prompt_cache object, warm% derived from the transcript =="
 out=$(bash "$R" legacy --plain)
-has "$out" "% warm"
+has "$out" "% hit"
 has "$out" "\$0.50"
 hasnot "$out" "cache miss"
 
@@ -105,6 +105,37 @@ has "$out" "78% session"
 has "$out" "cache miss 14m ago (1×, ~40k rewritten)"
 has "$out" "MR #7"
 has "$out" "draft"
+
+echo "== zero misses: hit colour is green even at 80% (the first write drags the ratio) =="
+T=$(mktemp -d)
+sed 's/"misses": 2/"misses": 0/; s/"hit_ratio": 0.912/"hit_ratio": 0.80/' "$HERE/fixtures/full.json" > "$T/warm0.json"
+out=$(bash "$R" "$T/warm0.json")
+rm -rf "$T"
+has "$out" "38;5;114m⚡ 80% hit"
+hasnot "$out" "cache miss"
+
+echo "== >200k on a 1M window is the price tier (orange), on a 200k window the cliff (bold red) =="
+out=$(bash "$R" edge)
+has "$out" "38;5;208m>200k"
+T=$(mktemp -d)
+sed 's/"context_window_size": 200000/"context_window_size": 200000/; s/"exceeds_200k_tokens": false/"exceeds_200k_tokens": true/' "$HERE/fixtures/full.json" > "$T/cliff.json"
+out=$(bash "$R" "$T/cliff.json")
+rm -rf "$T"
+has "$out" "1m\x1b\[38;5;203m>200k"
+
+echo "== agent.name claude is every ordinary session, not an --agent: no robot =="
+out=$(printf '{"model":{"id":"m","display_name":"M"},"agent":{"name":"claude"},"agent_type":"claude"}' | bash "$HERE/../statusline.sh" | perl -pe 's/\e\[[0-9;]*m//g')
+hasnot "$out" "🤖"
+out=$(printf '{"model":{"id":"m","display_name":"M"},"agent":{"name":"reviewer"},"agent_type":"claude"}' | bash "$HERE/../statusline.sh" | perl -pe 's/\e\[[0-9;]*m//g')
+has "$out" "🤖 reviewer"
+
+echo "== cancelled render leftovers: run-<dead pid>.* files are reaped, live ones kept =="
+T=$(mktemp -d)
+touch "$T/run-999999.tel" "$T/run-$$.tel"
+SL_CACHE_DIR="$T" bash "$R" minimal --plain >/dev/null
+if [ -e "$T/run-999999.tel" ]; then echo "  FAIL: stale run-999999.tel survived"; fail=$((fail+1)); else pass=$((pass+1)); fi
+if [ -e "$T/run-$$.tel" ]; then pass=$((pass+1)); else echo "  FAIL: live run-$$.tel was reaped"; fail=$((fail+1)); fi
+rm -rf "$T"
 
 echo "== narrow terminal: dim extras dropped, identity kept =="
 out=$(COLUMNS=80 bash "$R" full --plain)
