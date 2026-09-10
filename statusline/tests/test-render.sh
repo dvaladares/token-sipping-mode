@@ -9,6 +9,7 @@
 HERE=$(cd "$(dirname "$0")" && pwd)
 R="$HERE/render.sh"
 export CLAUDE_STATUSLINE_CONFIG="$HERE/config.test.sh"
+export SL_DRY=1
 fail=0; pass=0
 has()    { if printf '%s' "$1" | grep -q -- "$2"; then pass=$((pass+1)); else echo "  FAIL: expected '$2' in:"; printf '%s\n' "$1" | sed 's/^/    | /'; fail=$((fail+1)); fi; }
 hasnot() { if printf '%s' "$1" | grep -q -- "$2"; then echo "  FAIL: did not expect '$2' in:"; printf '%s\n' "$1" | sed 's/^/    | /'; fail=$((fail+1)); else pass=$((pass+1)); fi; }

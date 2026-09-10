@@ -319,7 +319,9 @@ fi
 #  - drop this seat's rate-limit blob where other agents and hooks can read it
 #  - keep the last raw input per seat, so "what did the harness actually send?" is a
 #    one-line answer on any machine
-if [ -n "$input" ]; then
+# SL_DRY=1 skips both: a test render must never overwrite the seat's live quota file
+# (the lane-reminder hook reads it; a fixture's 56% once replaced the real number).
+if [ -n "$input" ] && [ "${SL_DRY:-0}" != "1" ]; then
   { printf '%s' "$input" > "$SL_CACHE_DIR/last-input-$SL_SEAT_LC.json.tmp.$$" 2>/dev/null \
       && mv -f "$SL_CACHE_DIR/last-input-$SL_SEAT_LC.json.tmp.$$" "$SL_CACHE_DIR/last-input-$SL_SEAT_LC.json" 2>/dev/null
     if [ -n "$five_raw" ] || [ -n "$week_raw" ]; then
