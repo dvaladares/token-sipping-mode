@@ -143,7 +143,7 @@ IFS="$US" read -r \
   pc_present pc_warm pc_observed pc_expires pc_misses pc_hit pc_miss_tok pc_last_miss pc_recache pc_cause \
   pr_num pr_url pr_review pr_kind \
   < <(printf '%s' "$input" | jq -r '
-    def s(x): (x // "") | tostring;
+    def s(x): (x // "") | tostring | gsub("[\r\n]"; " ");
     [ s(.model.id), s(.model.display_name),
       s(.context_window.used_percentage), s(.context_window.total_input_tokens),
       s(.context_window.context_window_size),
@@ -265,7 +265,7 @@ ratio_pct_() { # "0.912" -> 91, "1" -> 100, "0.7" -> 70 ; empty when not a numbe
   ip="${v%%.*}"; fp="${v#*.}"; [ "$fp" = "$v" ] && fp=""
   fp="${fp}000"; fp="${fp:0:3}"
   case "$ip$fp" in ''|*[!0-9]*) return ;; esac
-  R=$(( ip * 100 + (10#$fp + 5) / 10 ))
+  R=$(( 10#${ip:-0} * 100 + (10#$fp + 5) / 10 ))
 }
 # Helper lookup: repo gauges/ first, then the legacy directory. R empty if absent, and
 # every caller treats "absent helper" as "omit the field".
@@ -284,6 +284,7 @@ osc8()  { printf '\033]8;;%s\033\\%s\033]8;;\033\\' "$1" "$2"; }   # clickable t
 mkdir -p "$SL_CACHE_DIR" 2>/dev/null
 _run="$SL_CACHE_DIR/run-$$"
 _pids=""
+rm -f "$_run".* 2>/dev/null     # never read a reused PID's leftovers as this render's data
 # A render the harness cancelled mid-way leaves its run-<pid>.* files behind for good
 # (found twice in nine days). Reap any whose process is gone. kill -0 is a builtin.
 for _f in "$SL_CACHE_DIR"/run-*; do
@@ -319,11 +320,11 @@ fi
 #  - keep the last raw input per seat, so "what did the harness actually send?" is a
 #    one-line answer on any machine
 if [ -n "$input" ]; then
-  { printf '%s' "$input" > "$SL_CACHE_DIR/last-input-$SL_SEAT_LC.json.tmp" 2>/dev/null \
-      && mv -f "$SL_CACHE_DIR/last-input-$SL_SEAT_LC.json.tmp" "$SL_CACHE_DIR/last-input-$SL_SEAT_LC.json" 2>/dev/null
+  { printf '%s' "$input" > "$SL_CACHE_DIR/last-input-$SL_SEAT_LC.json.tmp.$$" 2>/dev/null \
+      && mv -f "$SL_CACHE_DIR/last-input-$SL_SEAT_LC.json.tmp.$$" "$SL_CACHE_DIR/last-input-$SL_SEAT_LC.json" 2>/dev/null
     if [ -n "$five_raw" ] || [ -n "$week_raw" ]; then
       mkdir -p "$SL_QUOTA_DIR" 2>/dev/null
-      _qtmp="$SL_QUOTA_DIR/quota-$SL_SEAT_LC.json.tmp"
+      _qtmp="$SL_QUOTA_DIR/quota-$SL_SEAT_LC.json.tmp.$$"     # per PID: two renders of one seat can overlap
       printf '%s' "$input" | jq -c --arg seat "$SL_SEAT_LC" --arg sid "$session_id" \
         'select(.rate_limits != null) | {ts: (now | floor), seat: $seat, session_id: $sid, rate_limits}' > "$_qtmp" 2>/dev/null
       if [ -s "$_qtmp" ]; then
@@ -658,19 +659,15 @@ quota_line_() {
 
 line_5h=""; line_7d=""; line_spend=""
 if [ "$SL_SHOW_CLAUDE_QUOTA" = "1" ]; then
-  # printf %.0f rounds the harness's float; int_ alone would truncate 99.6 to 99
-  if [ -n "$five_raw" ]; then
-    printf -v _p '%.0f' "$five_raw" 2>/dev/null; to_epoch_ "$five_reset"
-    quota_line_ "claude 5h" "$_p" "$R" 18000; line_5h="$R"
-  fi
-  if [ -n "$week_raw" ]; then
-    printf -v _p '%.0f' "$week_raw" 2>/dev/null; to_epoch_ "$week_reset"
-    quota_line_ "claude 7d" "$_p" "$R" 604800; line_7d="$R"
-  fi
-  if [ -n "$spend_raw" ]; then
-    printf -v _p '%.0f' "$spend_raw" 2>/dev/null; to_epoch_ "$spend_reset"
-    quota_line_ "spend    " "$_p" "$R"; line_spend="$R"
-  fi
+  # printf %.0f rounds the harness's float; int_ alone would truncate 99.6 to 99. A value
+  # that is not a number is dropped first: printf would turn it into 0, a fabricated zero.
+  pct_() { R=""; case "$1" in ''|*[!0-9.]*|.|*.*.*) return ;; esac; printf -v R '%.0f' "$1" 2>/dev/null; }
+  pct_ "$five_raw"; _p="$R"
+  if [ -n "$_p" ]; then to_epoch_ "$five_reset"; quota_line_ "claude 5h" "$_p" "$R" 18000; line_5h="$R"; fi
+  pct_ "$week_raw"; _p="$R"
+  if [ -n "$_p" ]; then to_epoch_ "$week_reset"; quota_line_ "claude 7d" "$_p" "$R" 604800; line_7d="$R"; fi
+  pct_ "$spend_raw"; _p="$R"
+  if [ -n "$_p" ]; then to_epoch_ "$spend_reset"; quota_line_ "spend    " "$_p" "$R"; line_spend="$R"; fi
 fi
 
 # ==============================================================================
