@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """Per-session telemetry for the Claude Code statusline, from THIS session's transcript.
 
-Usage: session-telemetry.py <transcript_path> [now_epoch]
+Usage: session-telemetry.py <transcript_path> [now_epoch] [--compact-only]
+
+--compact-only: the caller already has Claude Code's own prompt_cache object (v2.1.251+)
+and only wants the compaction keys; skip parsing every usage row in the tail.
 
 WHY (2026-09-01, the operator). The old cache-rebuild field globbed EVERY transcript in both
 config homes and wrote ONE shared cache file. Every open session therefore showed the same
@@ -60,8 +63,10 @@ def parse_ts(s):
 def main():
     if len(sys.argv) < 2 or not sys.argv[1]:
         return 0
-    path = sys.argv[1]
-    now = float(sys.argv[2]) if len(sys.argv) > 2 else datetime.datetime.now(
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    compact_only = "--compact-only" in sys.argv
+    path = args[0]
+    now = float(args[1]) if len(args) > 1 else datetime.datetime.now(
         datetime.timezone.utc).timestamp()
     try:
         size = os.path.getsize(path)
@@ -76,7 +81,9 @@ def main():
     rows = []                                     # (ts, read, write, input, eph1h, eph5m)
     compacts = []                                 # (ts, pre, post)
     for raw in chunk.split(b"\n"):
-        if b'"usage"' in raw and b'"type":"assistant"' in raw:
+        if compact_only:
+            pass
+        elif b'"usage"' in raw and b'"type":"assistant"' in raw:
             try:
                 d = json.loads(raw)
             except ValueError:
@@ -92,7 +99,7 @@ def main():
                          u.get("input_tokens") or 0,
                          cc.get("ephemeral_1h_input_tokens") or 0,
                          cc.get("ephemeral_5m_input_tokens") or 0))
-        elif b'"subtype":"compact_boundary"' in raw:
+        if b'"subtype":"compact_boundary"' in raw:
             try:
                 d = json.loads(raw)
             except ValueError:
@@ -101,13 +108,23 @@ def main():
             compacts.append((parse_ts(d.get("timestamp") or ""),
                              m.get("preTokens"), m.get("postTokens")))
 
-    # Compactions earlier than the tail window are counted with a cheap byte scan of the
-    # head, so compact_n is the whole-session count even on a long transcript.
+    # Compactions earlier than the tail window are counted with a byte scan of the head
+    # in 4 MB pieces (a 100 MB transcript must not become a 100 MB allocation per render),
+    # so compact_n is the whole-session count even on a long transcript.
     if size > TAIL_BYTES:
+        pat = b'"subtype":"compact_boundary"'
         try:
+            n, carry, left = 0, b"", size - TAIL_BYTES
             with open(path, "rb") as fh:
-                head = fh.read(size - TAIL_BYTES)
-            compacts = [(None, None, None)] * head.count(b'"subtype":"compact_boundary"') + compacts
+                while left > 0:
+                    buf = fh.read(min(4_000_000, left))
+                    if not buf:
+                        break
+                    left -= len(buf)
+                    data = carry + buf
+                    n += data.count(pat) - carry.count(pat)
+                    carry = data[-len(pat):]
+            compacts = [(None, None, None)] * n + compacts
         except OSError:
             pass
 

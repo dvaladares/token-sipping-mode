@@ -295,7 +295,8 @@ for _f in "$SL_CACHE_DIR"/run-*; do
 done
 lib_ session-telemetry.py; _tel="$R"
 if [ -n "$_tel" ] && [ -n "$tpath" ] && [ -f "$tpath" ]; then
-  guard 0.5 python3 "$_tel" "$tpath" "$now_epoch" > "$_run.tel" 2>/dev/null & _pids="$_pids $!"
+  # With the harness's own prompt_cache in hand only the compaction keys are needed.
+  guard 0.5 python3 "$_tel" "$tpath" "$now_epoch" ${pc_present:+--compact-only} > "$_run.tel" 2>/dev/null & _pids="$_pids $!"
 fi
 if [ -f "$SL_FRUGAL" ]; then
   guard 0.4 python3 "$SL_FRUGAL" ${session_id:+--session "$session_id"} > "$_run.frugal" 2>/dev/null & _pids="$_pids $!"
