@@ -6,6 +6,10 @@
 </p>
 
 <p align="center">
+  <img src="./docs/flag-canada.svg" width="26" alt="Flag of Canada" /> Made in Canada
+</p>
+
+<p align="center">
   <img alt="Claude Code 2.1.251+" src="https://img.shields.io/badge/Claude_Code-2.1.251%2B-7c3aed?logo=anthropic&logoColor=white">
   <img alt="bash 3.2+" src="https://img.shields.io/badge/bash-3.2%2B-4EAA25?logo=gnubash&logoColor=white">
   <img alt="render ~130 ms" src="https://img.shields.io/badge/render-~130_ms-0ea5e9">
