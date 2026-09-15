@@ -1,8 +1,8 @@
 #!/bin/bash
 # Install claude-statusline into one or more Claude Code config homes.
 #
-#   ./install.sh                          -> ~/.claude
-#   ./install.sh ~/.claude ~/.claude-max20x   (one link per CLAUDE_CONFIG_DIR home)
+#   ./install.sh                          -> ~/.claude, plus ~/.claude-max20x if it exists
+#   ./install.sh ~/.claude ~/.claude-max20x   (one link per CLAUDE_CONFIG_DIR home, explicit)
 #
 # What it does, per home:
 #   1. backs up an existing statusline.sh to statusline.sh.bak-<stamp> (unless it is
@@ -17,7 +17,11 @@
 set -u
 HERE=$(cd "$(dirname "$0")" && pwd)
 STAMP=$(date +%Y%m%d-%H%M%S)
-homes=("$@"); [ ${#homes[@]} -eq 0 ] && homes=("$HOME/.claude")
+homes=("$@")
+if [ ${#homes[@]} -eq 0 ]; then
+  homes=("$HOME/.claude")
+  [ -d "$HOME/.claude-max20x" ] && homes+=("$HOME/.claude-max20x")
+fi
 
 for dep in bash jq python3 perl; do
   command -v "$dep" >/dev/null 2>&1 || echo "warning: $dep not found; some fields will be omitted"

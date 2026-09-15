@@ -39,13 +39,16 @@ Try it without installing: `bash statusline.sh --demo`.
 ```bash
 git clone https://github.com/dvaladares/token-sipping-mode ~/code/token-sipping-mode
 cd ~/code/token-sipping-mode/statusline
-./install.sh ~/.claude                      # one account
-./install.sh ~/.claude ~/.claude-max20x     # every CLAUDE_CONFIG_DIR home you use
+./install.sh                                # ~/.claude, plus ~/.claude-max20x if it exists
+./install.sh ~/.claude ~/.claude-max20x     # every CLAUDE_CONFIG_DIR home you use, explicit
 ```
 
-`install.sh` backs up any existing `statusline.sh`, symlinks each home to this repo's
-file (so a `git pull` updates every seat at once), and prints the `settings.json` snippet
-if yours does not already point there. It never edits `settings.json`. Add this yourself:
+With no arguments, `install.sh` links `~/.claude`, and also links `~/.claude-max20x`
+when that folder is present, so a two-account Mac is covered by one command. Passing
+homes explicitly always overrides the default. `install.sh` backs up any existing
+`statusline.sh`, symlinks each home to this repo's file (so a `git pull` updates every
+seat at once), and prints the `settings.json` snippet if yours does not already point
+there. It never edits `settings.json`. Add this yourself:
 
 ```json
 "statusLine": {
