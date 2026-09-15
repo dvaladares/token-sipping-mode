@@ -86,9 +86,10 @@ for lane in codex agy; do
   if command -v "$lane" >/dev/null 2>&1; then echo "LANE $lane ok $(command -v "$lane")"
   else echo "LANE $lane missing"; fi
 done
-# A local model server, if you run one. Set LOCAL_LANE_CMD to a command that exits 0
-# when the server is up (default: darkbloom's local endpoint check).
-DB="${LOCAL_LANE_BIN:-$HOME/.darkbloom/bin/darkbloom}"
+# A local model server, if you run one. Set LOCAL_LANE_BIN to a command that exits 0
+# when the server is up. The default below is a placeholder; point it at your own
+# local-model binary.
+DB="${LOCAL_LANE_BIN:-$HOME/.local-lane/bin/local-model}"
 if [ -x "$DB" ]; then
   if "$DB" local --json >/dev/null 2>&1; then echo "LANE local ok $DB"
   else echo "LANE local cold run: $DB start --local"; fi
