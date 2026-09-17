@@ -86,12 +86,17 @@ for lane in codex agy; do
   if command -v "$lane" >/dev/null 2>&1; then echo "LANE $lane ok $(command -v "$lane")"
   else echo "LANE $lane missing"; fi
 done
-# A local model server, if you run one. Set LOCAL_LANE_CMD to a command that exits 0
-# when the server is up (default: darkbloom's local endpoint check).
-DB="${LOCAL_LANE_BIN:-$HOME/.darkbloom/bin/darkbloom}"
-if [ -x "$DB" ]; then
-  if "$DB" local --json >/dev/null 2>&1; then echo "LANE local ok $DB"
-  else echo "LANE local cold run: $DB start --local"; fi
+# A local model server, if you run one. discover-local-lanes.sh reads the daemon's
+# live state file and probes localhost only, so it works from any harness.
+DISC="$(dirname "$0")/discover-local-lanes.sh"
+if [ -f "$DISC" ]; then
+  line=$(sh "$DISC" | grep '^LANE darkbloom ' | head -n1 | sed 's/^LANE darkbloom //')
+  case "$line" in
+    *local_http=up*) echo "LANE local ok $line" ;;
+    *daemon=missing*) echo "LANE local missing" ;;
+    *) echo "LANE local cold restart the daemon with --local-endpoint; $line" ;;
+  esac
+  sh "$DISC" | grep -v '^LANE darkbloom ' | grep '^LANE ' | grep 'open' | sed 's/^LANE /LANE local-other /'
 else
   echo "LANE local missing"
 fi
