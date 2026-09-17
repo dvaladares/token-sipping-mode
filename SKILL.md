@@ -65,6 +65,20 @@ the code CLI; single-transform bulk text -> the local model; everything else -> 
 general external CLI). Budget breaks remaining ties: prefer the lane whose own window has
 the most headroom, and a local model costs nothing.
 
+### Local lane: discover before you route
+
+At every rung, L0 included, run the local discovery once before any routing decision:
+
+```bash
+sh statusline/gauges/discover-local-lanes.sh
+```
+
+It prints one line per local lane in under a second, and it only probes localhost. If it
+shows `local_http=up`, route bulk text work there at any rung. Free beats cheap. That
+means log filtering, extraction, classification, draft prose and batch transforms. On a
+machine with no local lane it prints `daemon=missing` and the ladder applies unchanged.
+A main-loop spot check is mandatory before any local output lands or posts.
+
 ## Routing table
 
 Route each task DOWN to the cheapest tier that can do it correctly. When borderline,
@@ -133,6 +147,14 @@ separate vendor budgets. Shunt aggressively:
   mechanical stages, reserve high effort for the judge/verify stages.
 - **Nesting:** for wide sweeps, delegate the coordination too: one Sonnet coordinator
   drives Haiku workers and returns only the synthesis. Keep nesting to one level.
+- **Local model (zero-token):** run `discover-local-lanes.sh` first. It reports the
+  daemon mode, the loaded models and whether the local HTTP port answers. Then pipe one
+  transform per call: `cat big.log | <local-helper> "Extract error patterns as JSON"`.
+  Keep each input under about 30k characters. Local models drift on multi-step
+  instructions, so cap prompts to one concrete transform. A 429 usually means the model
+  is not loaded yet or memory is short; wait for the load, never restart the daemon from
+  an agent session. Never send a local model secrets, money figures, or auth and tenant
+  code.
 - **Per-project overrides:** if `.claude/routing-overrides.md` exists in the project,
   read it first; its routing rules win over this file.
 

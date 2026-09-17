@@ -195,3 +195,7 @@ token usage anywhere on disk (checked 2026-09-01), so its tokens print `-` and t
 statusline omits them. This reads every transcript touched today, which can be hundreds
 of megabytes, so it runs only inside the statusline's detached 60 s refresh, never per
 render. Feeds the `⇄ today  claude 7 (1.3B in · 4.9M out) · codex 21 (28M in · 206k out) · agy 57 runs` line.
+
+## discover-local-lanes.sh
+
+Lists local model lanes (darkbloom, ollama, llama-server, mlx_lm, LM Studio) in one line each. Plain POSIX sh, localhost probes only, always exits 0. `--json` for machine output. `lanes.sh` calls it for the local lane.
